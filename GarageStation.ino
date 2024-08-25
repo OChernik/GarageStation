@@ -77,10 +77,10 @@ bool idleState = 0;          // состояние общего покоя. 0 - 
 bool ventState = 0;          // состояние вентилятора. 0 - выключен, 1 - включен
 bool ventAuto = 0;           // управление вентилятором. 0 - ручное, 1 - автоматическое
 
-// const char* ssid = "zelenaya.net3";
-// const char* password = "18fev1985";
-const char* ssid = "Koltsevaya_15";
-const char* password = "vibrometr";
+// const char* ssid = "********";
+// const char* password = "********";
+const char* ssid = "********";
+const char* password = "********";
 
 void build(gh::Builder& b) {      // билдер GyverHub.
   b.Title(F("Климат в гараже"));  // добавим заголовок
