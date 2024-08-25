@@ -55,7 +55,7 @@ float checkValue(float newValue, float oldValue, int minValue, int maxValue, int
 void sendToOpenMon() {
   String buf;                                                             // Буфер для отправки
   buf.reserve(150);                                                       // Буфер для отправки
-  buf += F("http://open-monitoring.online/get?cid=3627&key=znU2bw&p1=");  // формируем заголовок
+  buf += F("http://open-monitoring.online/get?cid=3627&key=********=");  // формируем заголовок
   buf += temperatureOut;                                                  // вывод температуры улицы
   buf += F("&p2=");
   buf += humidityOut;                                                     // вывод влажности улицы
@@ -78,7 +78,7 @@ void sendToOpenMon() {
 // ESP324022D803F9F4  // идентификатор прибора
 void sendToNarodMon() {
   String buf;  // Буфер для отправки
-  buf += F("#ESP324022D803F9F4");
+  buf += F("#********");
   // buf += WiFi.macAddress();
   buf += F("\n");
   // buf.replace(":", "");  
