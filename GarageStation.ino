@@ -256,8 +256,8 @@ void loop() {
       temperatureOut = tempTemperature;
       humidityOut = hum4xCorrection + tempHumidity;
     } else {                                   // через 30 секунд начинается фильтрация
-      temperatureOut = checkValue(tempTemperature, temperatureOut, -35, 40, 1);
-      humidityOut = hum4xCorrection + checkValue(tempHumidity, humidityOut, 20, 95, 1);
+      temperatureOut = checkValue(tempTemperature, temperatureOut, -35, 40, 2);
+      humidityOut = hum4xCorrection + checkValue(tempHumidity, humidityOut, 20, 95, 2);
     }   
     sht3x.measureSingleShot(REPEATABILITY_HIGH, false, tempTemperature, tempHumidity);  // SensirionI2cSht3x.h
     temperatureGarage = checkValue(tempTemperature, temperatureGarage, -5, 35, 2);
