@@ -252,8 +252,8 @@ void loop() {
   // если пришло время опроса датчиков
   if (sensorReadTmr.tick()) {
     sht4x.measureHighPrecision(tempTemperature, tempHumidity);       // SensirionI2cSht4x.h
-    int value4xDelta = ((millis() - heat4xStart) < 10000) ? 30 : 1;  // value4xDelta зависит от времени после нагрева
-    temperatureOut = checkValue(tempTemperature, temperatureOut, -35, 40, value4xDelta);
+    int value4xDelta = ((millis() - heat4xStart) < 15000) ? 50 : 1;  // value4xDelta зависит от времени после нагрева
+    temperatureOut = checkValue(tempTemperature, temperatureOut, -35, 80, value4xDelta);
     // humidityOut = hum4xCorrection + checkValue(tempHumidity, humidityOut, 20, 95, value4xDelta);
     humidityOut = hum4xCorrection + tempHumidity;
     sht3x.measureSingleShot(REPEATABILITY_HIGH, false, tempTemperature, tempHumidity);  // SensirionI2cSht3x.h
