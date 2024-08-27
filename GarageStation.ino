@@ -233,7 +233,7 @@ void loop() {
   // подогреваем датчик SHT41 если Humidity > heat4xBorder
   // с периодом heat4xPeriod включаем прогрев датчика SHT41 на 1 секунду
   if ((humidityOut > heat4xBorder) && heat4xTmr.tick()) {
-    heat4xStart = millis();                                              // сохраняем время начала нагрева датчика
+    heat4xStart = millis();                                              // сохраняем время начала нагрева датчика    
     sht4x.activateHighestHeaterPowerLong(temperatureOut, tempHumidity);  // SensirionI2cSht4x.h
     humidityOut = tempHumidity + hum4xCorrection;                        // SensirionI2cSht4x.h
     showScreen();                                                        // вывод показаний датчиков на экран
@@ -251,11 +251,14 @@ void loop() {
 
   // если пришло время опроса датчиков
   if (sensorReadTmr.tick()) {
-    sht4x.measureHighPrecision(tempTemperature, tempHumidity);       // SensirionI2cSht4x.h
-    int value4xDelta = ((millis() - heat4xStart) < 15000) ? 50 : 1;  // value4xDelta зависит от времени после нагрева
-    temperatureOut = checkValue(tempTemperature, temperatureOut, -35, 80, value4xDelta);
-    // humidityOut = hum4xCorrection + checkValue(tempHumidity, humidityOut, 20, 95, value4xDelta);
-    humidityOut = hum4xCorrection + tempHumidity;
+    sht4x.measureHighPrecision(tempTemperature, tempHumidity);       // SensirionI2cSht4x.h    
+    if ((millis() - heat4xStart) < 30000){      // сразу после нагрева выводим данные как есть
+      temperatureOut = tempTemperature;
+      humidityOut = hum4xCorrection + tempHumidity;
+    } else {                                   // через 30 секунд начинается фильтрация
+      temperatureOut = checkValue(tempTemperature, temperatureOut, -35, 40, 1);
+      humidityOut = hum4xCorrection + checkValue(tempHumidity, humidityOut, 20, 95, 1);
+    }   
     sht3x.measureSingleShot(REPEATABILITY_HIGH, false, tempTemperature, tempHumidity);  // SensirionI2cSht3x.h
     temperatureGarage = checkValue(tempTemperature, temperatureGarage, -5, 35, 2);
     humidityGarage = hum3xCorrection + checkValue(tempHumidity, humidityGarage, 20, 95, 2);
