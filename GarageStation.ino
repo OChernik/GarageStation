@@ -266,7 +266,7 @@ void loop() {
 
   // если пришло время опроса датчиков
   if (sensorReadTmr.tick()) {
-    sensorsRead();
+    sensorsRead(); // считываем все датчики и устанавливаем флаги 
     showScreen();  // вывод показаний датчиков на экран
   }                // end if
 
