@@ -83,10 +83,10 @@ bool hubChanged = 0;         // 1 - требуется изменить конф
 uint32_t idleTimeTmr = 0;    // переменная таймера состояния покоя
 uint32_t idleTime;           // время покоя
 
-// const char* ssid = "zelenaya.net3";
-// const char* password = "18fev1985";
-const char* ssid = "Koltsevaya_15";
-const char* password = "vibrometr";
+// const char* ssid = "***";
+// const char* password = "***";
+const char* ssid = "****";
+const char* password = "*****
 
 void build(gh::Builder& b) {      // билдер GyverHub.
   b.Title(F("Климат в гараже"));  // добавим заголовок
