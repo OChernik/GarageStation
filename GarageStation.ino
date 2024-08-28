@@ -1,15 +1,17 @@
 // реле управления вентилятором GPIO16
 // реле управления воротами GPIO18
+// вход геркона GPIO25
 // Датчик SHT41, SHT31  SDA - 21, SCL - 22
 // Экран SSH1106 1,3''  SDA - 21, SCL - 22
-// Esp32 с антенной ********
+// Esp32 с антенной 192.168.31.85
 
 // Настройки____________________________________________________________________
 #define relayVent 16                      // relay to GPIO16
 #define relayGate 18                      // relay to GPIO18
+#define gercon 25                         // геркон to GPIO25
 #define sensorReadPeriod 2 * 1000L        // период между опросом датчиков в мс.
 #define openMonPeriod 5 * 60 * 1000L      // период между отправкой данных на сервер ОМ в мс.
-#define narodMonPeriod 6 * 60 * 1000L    // период между отправкой данных на сервер NM в мс.
+#define narodMonPeriod 6 * 60 * 1000L     // период между отправкой данных на сервер NM в мс.
 #define checkWifiPeriod 30 * 1000L        // период проверки состояния WiFi соединения в мс.
 #define oledInvertPeriod 60 * 1000L       // период инверсии дисплея
 #define heat3xPeriod 2 * 60 * 60 * 1000L  // период включения нагрева датчика SHT3x (время МЕЖДУ включениями)
@@ -72,15 +74,19 @@ bool heat3xFlag = 0;         // флаг нагрева датчика SHT31
 bool heat4xFlag = 0;         // флаг нагрева датчика SHT41
 bool oledFlag = 0;           // флаг состояния инверсии дисплея
 bool relayGateState = 0;     // состояние реле ворот. 0 - разомкнуто, 1 - замкнуто.
-bool gateState = 0;          // состояние ворот. 0 - закрыты (геркон разомкнут), 1 - открыты
+bool gateState;              // состояние ворот. 0 - закрыты (геркон разомкнут), 1 - открыты
+bool gateStateChanged = 0;   // состояние ворот изменилось. Для обновления ПУ
 bool idleState = 0;          // состояние общего покоя. 0 - покой, 1 - движение
 bool ventState = 0;          // состояние вентилятора. 0 - выключен, 1 - включен
 bool ventAuto = 0;           // управление вентилятором. 0 - ручное, 1 - автоматическое
+bool hubChanged = 0;         // 1 - требуется изменить конфигурацию виджетов ПУ
+uint32_t idleTimeTmr = 0;    // переменная таймера состояния покоя
+uint32_t idleTime;           // время покоя
 
-// const char* ssid = "********";
-// const char* password = "********";
-const char* ssid = "********";
-const char* password = "********";
+// const char* ssid = "zelenaya.net3";
+// const char* password = "18fev1985";
+const char* ssid = "Koltsevaya_15";
+const char* password = "vibrometr";
 
 void build(gh::Builder& b) {      // билдер GyverHub.
   b.Title(F("Климат в гараже"));  // добавим заголовок
@@ -117,18 +123,32 @@ void build(gh::Builder& b) {      // билдер GyverHub.
   }
   // горизонтальный контейнер с работой вентилятора
   if (b.beginRow()) {
-    b.Switch_("ventTurn", &ventState).label("Вентилятор ON/OFF");
-    b.LED_("ventLed", &ventState).label("Вентилятор");
+    if (b.Switch(&ventAuto).label("АвтоРежим").click()) (hubChanged = 1);
+    if (ventAuto) {  // если вентилятор в режиме автоматического управления
+      b.LED_("ventLed", &ventState).label("Вентилятор ON/OFF");
+    } else {
+      if (b.Switch(&ventState).label("Вентилятор ON/OFF").click()) (hubChanged = 1);
+    }
     b.endRow();
   }
-
+  // статус ворот
+  if (gateState) {  // если ворота открыты
+    if (b.Switch_("gateSwitch", &gateState).label("Ворота открыты. Закрыть?").click()) {
+      closeGate();     // закрываем ворота      
+    }
+  } else {
+    b.Title(F("Ворота закрыты"));
+  }
 }  // end void build()
 
 // Setup______________________________________________________________________________________________
 void setup() {
 
-  pinMode(relayVent, OUTPUT);            // пин реле вентилятора - выход
-  pinMode(relayGate, OUTPUT);            // пин реле ворот - выход
+  pinMode(relayVent, OUTPUT);       // пин реле вентилятора - выход
+  pinMode(relayGate, OUTPUT);       // пин реле ворот - выход
+  pinMode(gercon, INPUT_PULLDOWN);  // подтягиваем вход геркона к земле
+  if (digitalRead(gercon)) gateState = 1;
+  else gateState = 0;                    // определяем исходное состояние ворот
   digitalWrite(relayGate, LOW);          // исходное низкое значение
   digitalWrite(relayVent, LOW);          // исходное низкое значение
   esp_task_wdt_init(WDT_TIMEOUT, true);  //enable panic so ESP32 restarts
@@ -215,7 +235,11 @@ void loop() {
     hub.sendUpdate("TempBox");     // обновляем значение температуры в коробке
     hub.sendUpdate("Pressure");    // обновляем значение давления
   }
-
+  // если требуется изменить ПУ
+  if (hubChanged || gateStateChanged) {
+    hub.sendRefresh();
+    hubChanged = 0;
+  }
   // с периодом heat3xPeriod включаем прогрев датчика SHT31 на время heat3xTime
   // нагрев включается если измеренная влажность больше heat3xBorder
   // начальные значения heat3xFlag = 0, heat3xTmr = 0
@@ -233,12 +257,38 @@ void loop() {
   // подогреваем датчик SHT41 если Humidity > heat4xBorder
   // с периодом heat4xPeriod включаем прогрев датчика SHT41 на 1 секунду
   if ((humidityOut > heat4xBorder) && heat4xTmr.tick()) {
-    heat4xStart = millis();                                              // сохраняем время начала нагрева датчика    
+    heat4xStart = millis();                                              // сохраняем время начала нагрева датчика
     sht4x.activateHighestHeaterPowerLong(temperatureOut, tempHumidity);  // SensirionI2cSht4x.h
     humidityOut = tempHumidity + hum4xCorrection;                        // SensirionI2cSht4x.h
     showScreen();                                                        // вывод показаний датчиков на экран
-    delay(1000);            // чтобы заметить макс. темп. и RH на дисплее. Не придумал, как обойтись без delay
-  }  // end If
+    delay(1000);                                                         // чтобы заметить макс. темп. и RH на дисплее. Не придумал, как обойтись без delay
+  }                                                                      // end If
+
+  // если пришло время опроса датчиков
+  if (sensorReadTmr.tick()) {
+    sht4x.measureHighPrecision(tempTemperature, tempHumidity);  // SensirionI2cSht4x.h
+    if ((millis() - heat4xStart) < 30000) {                     // сразу после нагрева выводим данные как есть
+      temperatureOut = tempTemperature;
+      humidityOut = hum4xCorrection + tempHumidity;
+    } else {  // через 30 секунд начинается фильтрация
+      temperatureOut = checkValue(tempTemperature, temperatureOut, -35, 40, 2);
+      humidityOut = hum4xCorrection + checkValue(tempHumidity, humidityOut, 20, 95, 2);
+    }
+    sht3x.measureSingleShot(REPEATABILITY_HIGH, false, tempTemperature, tempHumidity);  // SensirionI2cSht3x.h
+    temperatureGarage = checkValue(tempTemperature, temperatureGarage, -5, 35, 2);
+    humidityGarage = hum3xCorrection + checkValue(tempHumidity, humidityGarage, 20, 95, 2);
+    temperatureBox = checkValue(bme.readTemperature(), temperatureBox, 5, 45, 1);        // GyverBME280.h
+    pressure = checkValue((pressureToMmHg(bme.readPressure())), pressure, 720, 770, 1);  // GyverBME280.h
+    rssi = WiFi.RSSI();
+
+    bool newGateState = digitalRead(gercon);              // считали состояние ворот
+    if (newGateState != gateState) gateStateChanged = 1;  // если ворота открылись или закрылись, подняли флаг
+    else gateStateChanged = 0;                            // если нет, опустили флаг
+
+    gateState = newGateState;  // установили флаг состояния ворот
+
+    showScreen();  // вывод показаний датчиков на экран
+  }                // end if
 
   if (oledTmr.tick()) {            // если пришло время инвертировать дисплей
     oledFlag = !oledFlag;          // инвертируем флаг состояния дисплея
@@ -248,25 +298,6 @@ void loop() {
   // включаем/выключаем вентилятор в зависимости от состояния ventState
   if (ventState) digitalWrite(relayVent, HIGH);  // включаем вентилятор
   else digitalWrite(relayVent, LOW);             // выключаем вентилятор
-
-  // если пришло время опроса датчиков
-  if (sensorReadTmr.tick()) {
-    sht4x.measureHighPrecision(tempTemperature, tempHumidity);       // SensirionI2cSht4x.h    
-    if ((millis() - heat4xStart) < 30000){      // сразу после нагрева выводим данные как есть
-      temperatureOut = tempTemperature;
-      humidityOut = hum4xCorrection + tempHumidity;
-    } else {                                   // через 30 секунд начинается фильтрация
-      temperatureOut = checkValue(tempTemperature, temperatureOut, -35, 40, 2);
-      humidityOut = hum4xCorrection + checkValue(tempHumidity, humidityOut, 20, 95, 2);
-    }   
-    sht3x.measureSingleShot(REPEATABILITY_HIGH, false, tempTemperature, tempHumidity);  // SensirionI2cSht3x.h
-    temperatureGarage = checkValue(tempTemperature, temperatureGarage, -5, 35, 2);
-    humidityGarage = hum3xCorrection + checkValue(tempHumidity, humidityGarage, 20, 95, 2);
-    temperatureBox = checkValue(bme.readTemperature(), temperatureBox, 5, 45, 1);        // GyverBME280.h
-    pressure = checkValue((pressureToMmHg(bme.readPressure())), pressure, 720, 770, 1);  // GyverBME280.h
-    rssi = WiFi.RSSI();
-    showScreen();  // вывод показаний датчиков на экран
-  }                // end if
 
   // восстанавливаем соединение при случайной пропаже
   if (checkWifiTmr.tick() && (WiFi.status() != WL_CONNECTED)) {
@@ -288,6 +319,6 @@ void loop() {
     && ((millis() - heat3xStart) >= (heat3xTime + 30000))) {
     narodMonTmr = millis();  // сбрасываем таймер отправки данных
     sendToNarodMon();        // отправляем данные
-  }  // end if (sendtoNM)
+  }                          // end if (sendtoNM)
 
 }  // end Loop
