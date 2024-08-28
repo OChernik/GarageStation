@@ -117,7 +117,7 @@ void closeGate() {
   idleTime = 0;                     // сброс времени покоя
 } // end closeGate 
 
-// функция опрашивает все датчики
+// функция опрашивает все датчики и устанавливает флаги
 void sensorsRead() {    
     sht4x.measureHighPrecision(tempTemperature, tempHumidity);  // SensirionI2cSht4x.h
     if ((millis() - heat4xStart) < 30000) {                     // сразу после нагрева выводим данные как есть
