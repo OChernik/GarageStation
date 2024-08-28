@@ -266,27 +266,7 @@ void loop() {
 
   // если пришло время опроса датчиков
   if (sensorReadTmr.tick()) {
-    sht4x.measureHighPrecision(tempTemperature, tempHumidity);  // SensirionI2cSht4x.h
-    if ((millis() - heat4xStart) < 30000) {                     // сразу после нагрева выводим данные как есть
-      temperatureOut = tempTemperature;
-      humidityOut = hum4xCorrection + tempHumidity;
-    } else {  // через 30 секунд начинается фильтрация
-      temperatureOut = checkValue(tempTemperature, temperatureOut, -35, 40, 2);
-      humidityOut = hum4xCorrection + checkValue(tempHumidity, humidityOut, 20, 95, 2);
-    }
-    sht3x.measureSingleShot(REPEATABILITY_HIGH, false, tempTemperature, tempHumidity);  // SensirionI2cSht3x.h
-    temperatureGarage = checkValue(tempTemperature, temperatureGarage, -5, 35, 2);
-    humidityGarage = hum3xCorrection + checkValue(tempHumidity, humidityGarage, 20, 95, 2);
-    temperatureBox = checkValue(bme.readTemperature(), temperatureBox, 5, 45, 1);        // GyverBME280.h
-    pressure = checkValue((pressureToMmHg(bme.readPressure())), pressure, 720, 770, 1);  // GyverBME280.h
-    rssi = WiFi.RSSI();
-
-    bool newGateState = digitalRead(gercon);              // считали состояние ворот
-    if (newGateState != gateState) gateStateChanged = 1;  // если ворота открылись или закрылись, подняли флаг
-    else gateStateChanged = 0;                            // если нет, опустили флаг
-
-    gateState = newGateState;  // установили флаг состояния ворот
-
+    sensorsRead();
     showScreen();  // вывод показаний датчиков на экран
   }                // end if
 
