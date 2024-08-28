@@ -55,7 +55,7 @@ float checkValue(float newValue, float oldValue, int minValue, int maxValue, int
 void sendToOpenMon() {
   String buf;                                                             // Буфер для отправки
   buf.reserve(150);                                                       // Буфер для отправки
-  buf += F("http://open-monitoring.online/get?cid=3627&key=********=");  // формируем заголовок
+  buf += F("http://open-monitoring.online/get?cid=3627&key=znU2bw&p1=");  // формируем заголовок
   buf += temperatureOut;                                                  // вывод температуры улицы
   buf += F("&p2=");
   buf += humidityOut;                                                     // вывод влажности улицы
@@ -75,13 +75,14 @@ void sendToOpenMon() {
 }
 
 // функция отсылает данные на NarodMon
-// ESP324022D803F9F4  // идентификатор прибора
+// ESP324022D803F9F4  // идентификатор прибора в подвале
+// ESP32A842E356A6B8  // идентификатор прибора в гараже
 void sendToNarodMon() {
   String buf;  // Буфер для отправки
-  buf += F("#********");
-  // buf += WiFi.macAddress();
+  buf += F("#ESP32");
+  buf += WiFi.macAddress();
   buf += F("\n");
-  // buf.replace(":", "");  
+  buf.replace(":", "");  
   Serial.println(buf);
   buf += F("#Temp1#");
   buf += temperatureOut;
@@ -106,3 +107,12 @@ void sendToNarodMon() {
   client.print(buf.c_str());            // И отправляем данные в сеть
   client.stop();                        // Разрываем соединение с сервером
 }
+
+// функция закрывает ворота
+void closeGate() {
+  digitalWrite(relayGate, HIGH);    // для замыкания выставляем HIGH    
+  delay(500);
+  digitalWrite(relayGate, LOW);     // для размыкания выставляем LOW       
+  idleTimeTmr = millis();           // сброс таймера покоя
+  idleTime = 0;                     // сброс времени покоя
+} // end closeGate 
