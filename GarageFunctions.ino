@@ -55,7 +55,7 @@ float checkValue(float newValue, float oldValue, int minValue, int maxValue, int
 void sendToOpenMon() {
   String buf;                                                             // Буфер для отправки
   buf.reserve(150);                                                       // Буфер для отправки
-  buf += F("http://open-monitoring.online/get?cid=3627&key=znU2bw&p1=");  // формируем заголовок
+  buf += F("http://open-monitoring.online/get?cid=3627&key=******=");  // формируем заголовок
   buf += temperatureOut;                                                  // вывод температуры улицы
   buf += F("&p2=");
   buf += humidityOut;                                                     // вывод влажности улицы
@@ -75,8 +75,8 @@ void sendToOpenMon() {
 }
 
 // функция отсылает данные на NarodMon
-// ESP324022D803F9F4  // идентификатор прибора в подвале
-// ESP32A842E356A6B8  // идентификатор прибора в гараже
+//   // идентификатор прибора в подвале
+//   // идентификатор прибора в гараже
 void sendToNarodMon() {
   String buf;  // Буфер для отправки
   buf += F("#ESP32");
