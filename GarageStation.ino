@@ -223,8 +223,8 @@ void setup() {
 void loop() {
 
   ArduinoOTA.handle();             // поддерживаем работу ОТА
-
-  hub.tick();                      // тикаем для нормальной работы конструктора интерфейса
+  hub.tick();                      // тикаем для работы конструктора интерфейса
+  
   static gh::Timer tmr(2000);      // период 2 секунды
   if (tmr) {                       // если прошел период
     hub.sendUpdate("TempOut");     // обновляем значение температуры на улице
@@ -234,11 +234,13 @@ void loop() {
     hub.sendUpdate("TempBox");     // обновляем значение температуры в коробке
     hub.sendUpdate("Pressure");    // обновляем значение давления
   }
+  
   // если требуется изменить ПУ
   if (hubChanged || gateStateChanged) {
     hub.sendRefresh();
     hubChanged = 0;
   }
+  
   // с периодом heat3xPeriod включаем прогрев датчика SHT31 на время heat3xTime
   // нагрев включается если измеренная влажность больше heat3xBorder
   // начальные значения heat3xFlag = 0, heat3xTmr = 0
