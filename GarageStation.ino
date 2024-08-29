@@ -238,7 +238,7 @@ void loop() {
   // если требуется изменить ПУ
   if (hubChanged || gateStateChanged) {
     hub.sendRefresh();
-    hubChanged = 0;
+    hubChanged = 0; gateStateChanged = 0;
   }
   
   // с периодом heat3xPeriod включаем прогрев датчика SHT31 на время heat3xTime
