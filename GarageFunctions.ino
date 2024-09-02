@@ -155,7 +155,7 @@ void sensorsRead() {
 }
 
 // функция вычисляет давление насыщенного пара воды при заданной температуре (для апроксимации внесены табличные данные от -20С до 40С )
-float vaporPressure(float t){
+float vaporPressure(float t) {
  float k4 = 0,0000005;  // коэффициент при квадратичном члене многочлена
  float k3 = 0,00002;    // коэффициент при кубическом члене многочлена
  float k2 = 0,0014;     // коэффициент при квадратичном члене многочлена
@@ -164,3 +164,11 @@ float vaporPressure(float t){
  float pressure = k4 * pow (t, 4) + k3 * pow (t, 3) + k2 * pow (t, 2) + k1 * t + k;
  return pressure;  
 }  
+
+// функция переводит влажность h1 при температуре t1 во влажность при температуре t2
+float humConversion(float h1, float t1, float t2) {
+  float p1 = vaporPressure(t1); расчитали ДНП при t1
+  float p2 = vaporPressure(t2); расчитали ДНП при t2
+  float h2 = h1 * (p1 / p2);
+  return h2;  
+}
