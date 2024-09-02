@@ -352,10 +352,10 @@ void loop() {
   }
 
   // закрываем ворота через carLeavePeriod после выезда машины
-  if(gateState && !carStatus && (millis() - carLeaveTmr > carLeavePeriod) \
+  if(carLeaveTmr && gateState && (millis() - carLeaveTmr > carLeavePeriod) \
     && (millis() - gateOpenedTmr < gateOpenedPeriod)) {
-    carLeaveTmr = millis() +  gateOpenedPeriod; 
     closeGate();  // закрываем ворота
+    carLeaveTmr = 0;
   }
 
   // Если пришло время очередной отправки на Open Monitoring
