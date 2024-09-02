@@ -142,12 +142,23 @@ void sensorsRead() {
   distance = sonar.ping_cm();                                 // определили расстояние до машины
   bool newCarStatus;
   (distance > 100)? (newCarStatus = 0) : (newCarStatus = 1);  // определили статус машины - в гараже или нет
-  if (newCarStatus < carStatus) carLeaveTmr = millis(); // если машина выехала, установили таймер  выезда машины из гаража
-  carStatus = newCarStatus;                             // установили статус машины
+  if (newCarStatus < carStatus) carLeaveTmr = millis();       // если машина выехала, установили таймер  выезда машины из гаража
+  carStatus = newCarStatus;                                   // установили статус машины
 
   bool newGateState = digitalRead(gercon);              // считали состояние ворот
-  if (newGateState != gateState) gateStateChanged = 1;  // если ворота открылись или закрылись, подняли флаг
-  else gateStateChanged = 0;                            // если нет, опустили флаг
+  if (newGateState > gateState) {                       // если ворота открылись, установили флаги
+    gateOpened = 1;         
+    gateClosed = 0;    
+  }  
+  if (newGateState < gateState) {                       // если ворота закрылись, установили флаги
+    gateOpened = 0;         
+    gateClosed = 1;    
+    carLeaveTmr = 0;
+  }  
+  if (newGateState = gateState) {                       // если состояние ворот не поменялось, установили флаги
+    gateOpened = 0;         
+    gateClosed = 0;    
+  }  
   gateState = newGateState;                             // установили флаг состояния ворот 
   
   if (digitalRead(pir1)) pir1State = 1; else pir1State = 0;  // если появился сигнал на входе pir1
