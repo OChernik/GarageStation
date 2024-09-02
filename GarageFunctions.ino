@@ -136,6 +136,8 @@ void sensorsRead() {
   temperatureBox = checkValue(bme.readTemperature(), temperatureBox, 5, 45, 1);        // GyverBME280.h
   pressure = checkValue((pressureToMmHg(bme.readPressure())), pressure, 720, 770, 1);  // GyverBME280.h
   rssi = WiFi.RSSI();
+  // считаем уличную влажность при температуре в гараже
+  humidityCalc = humConversion(humidityOut, temperatureOut, temperatureGarage);
 
   distance = sonar.ping_cm();                                 // определили расстояние до машины
   bool newCarStatus;
