@@ -255,7 +255,7 @@ void setup() {
   ArduinoOTA.begin();
 
   hub.mqtt.config("test.mosquitto.org", 1883);              // подключаем MQTT сервис
-  hub.config(F("ChernikDevices"), F("Garage"), F("f494"));  // конфигурация GyverHub
+  hub.config(F("*********"), F("Garage"), F("f494"));  // конфигурация GyverHub
   hub.onBuild(build);
   hub.begin();
   // устанавливаем начальные измеряемые значения для корректной работы фильтра checkValue
