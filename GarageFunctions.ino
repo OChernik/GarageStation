@@ -55,7 +55,9 @@ float checkValue(float newValue, float oldValue, int minValue, int maxValue, int
 void sendToOpenMon() {
   String buf;                                                             // Буфер для отправки
   buf.reserve(150);                                                       // Буфер для отправки
-  buf += F("http://open-monitoring.online/get?cid=3627&key=OpenMonKey="); // формируем заголовок
+  buf += F("http://open-monitoring.online/get?cid=3627&key=");            // формируем заголовок
+  buf += OpenMonKey;                                                      // формируем заголовок
+  buf += F("=");                                                          // формируем заголовок
   buf += temperatureOut;                                                  // вывод температуры улицы
   buf += F("&p2=");
   buf += humidityOut;  // вывод влажности улицы
