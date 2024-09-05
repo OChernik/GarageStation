@@ -10,11 +10,11 @@
 
 // Настройки____________________________________________________________________
 
-#define wifiLogin  *****                  // wifi Login
-#define wifiPass   *****                  // wifi Password
-#define hubPrefix   *****                 // GyverHub hubPrefix
-#define hubClientID   *****               // GyverHub Client ID
-#define OpenMonKey   *****                // Open Monitoring Key
+const char* ssid = "*********";           // wifi Login
+const char* password = "********";        // wifi Password
+const char* hubPrefix = "*********";      // GyverHub hubPrefix
+const char* hubClientID = "********";     // GyverHub Client ID
+const char* OpenMonKey = "********";      // Open Monitoring Key
 
 #define pir1 26                           // sensor PIR1 to GPIO26
 #define pir2 27                           // sensor PIR2 to GPIO27
@@ -120,15 +120,10 @@ uint32_t idleTimeTmr = 0;         // переменная таймера сос�
 uint32_t idleTime = 0;            // текущее время покоя
 int idleSec = 0;                  // текущее время покоя в целых секундах
 
-// const char* ssid = "*******";
-// const char* password = "*******";
-const char* ssid = "wifiLogin";
-const char* password = "wifiPass";
-
 void build(gh::Builder& b) {      // билдер GyverHub.
   // добавляем в меню два пользовательских пункта 0.Контроль гаража и 1.Настройки гаража.
   // пункт 1.Настройки гаража видит только пользователь с указанным Client ID  
-  if (b.build.client.id == "hubClientID") {
+  if (b.build.client.id == hubClientID) {
     b.Menu("Контроль гаража;Настройки гаража");
   } else {
     b.Menu("Контроль гаража");
@@ -273,7 +268,7 @@ void setup() {
   ArduinoOTA.begin();
 
   hub.mqtt.config("test.mosquitto.org", 1883);              // подключаем MQTT сервис
-  hub.config(F("hubPrefix"), F("Garage"), F("f494"));       // конфигурация GyverHub
+  hub.config(F(hubPrefix), F("Garage"), F("f494"));         // конфигурация GyverHub
   hub.onBuild(build);
   hub.begin();
   // устанавливаем начальные измеряемые значения для корректной работы фильтра checkValue
