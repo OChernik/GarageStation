@@ -68,9 +68,11 @@ void sendToOpenMon() {
   buf += F("&p6=");
   buf += temperatureBox;  // вывод температуры в корпусе
   buf += F("&p7=");
-  buf += rssi;              // вывод силы сигнала Wi-Fi, dBm
+  buf += rssi;  // вывод силы сигнала Wi-Fi, dBm
   buf += F("&p8=");
   buf += carStatus;         // вывод статуса машины в гараже, есть или нет
+  buf += F("&p9=");
+  buf += humidityCalc;      // вывод приведенной влажности 
   http.begin(buf.c_str());  // отправляем сформированную строку
   http.GET();               // Send HTTP GET request
   http.end();               // Free resources
@@ -139,49 +141,52 @@ void sensorsRead() {
   // считаем уличную влажность при температуре в гараже
   humidityCalc = humConversion(humidityOut, temperatureOut, temperatureGarage);
 
-  distance = sonar.ping_cm();                                 // определили расстояние до машины
+  distance = sonar.ping_cm();  // определили расстояние до машины
   bool newCarStatus;
-  (distance > 100)? (newCarStatus = 0) : (newCarStatus = 1);  // определили статус машины - в гараже или нет
-  if (newCarStatus < carStatus) carLeaveTmr = millis();       // если машина выехала, установили таймер  выезда машины из гаража
-  carStatus = newCarStatus;                                   // установили статус машины
+  (distance > 100) ? (newCarStatus = 0) : (newCarStatus = 1);  // определили статус машины - в гараже или нет
+  if (newCarStatus < carStatus) carLeaveTmr = millis();        // если машина выехала, установили таймер  выезда машины из гаража
+  carStatus = newCarStatus;                                    // установили статус машины
 
-  bool newGateState = digitalRead(gercon);              // считали состояние ворот
-  if (newGateState > gateState) {                       // если ворота открылись, установили флаги
-    gateOpened = 1;         
-    gateClosed = 0;    
-  }  
-  if (newGateState < gateState) {                       // если ворота закрылись, установили флаги
-    gateOpened = 0;         
-    gateClosed = 1;    
-    carLeaveTmr = 0;
-  }  
-  if (newGateState = gateState) {                       // если состояние ворот не поменялось, установили флаги
-    gateOpened = 0;         
-    gateClosed = 0;    
-  }  
-  gateState = newGateState;                             // установили флаг состояния ворот 
-  
-  if (digitalRead(pir1)) pir1State = 1; else pir1State = 0;  // если появился сигнал на входе pir1
-  if (digitalRead(pir2)) pir2State = 1; else pir2State = 0;  // если появился сигнал на входе pir2
+  bool newGateState = digitalRead(gercon);  // считали состояние ворот
+  if (newGateState > gateState) {           // если ворота открылись, установили флаги
+    gateOpened = 1;                         // при открытии ворот меняется содержимое ПУ
+    gateClosed = 0;
+  }
+  if (newGateState < gateState) {  // если ворота закрылись, установили флаги
+    gateOpened = 0;
+    gateClosed = 1;                // при закрытии ворот меняется содержимое ПУ
+    carLeaveTmr = 0;               // таймер нужно сбросить на 0 чтобы случайно не закрылись ворота
+  }
+  // if (newGateState = gateState) {  // если состояние ворот не поменялось, установили флаги
+  //   gateOpened = 0;
+  //   gateClosed = 0;
+  // }
+  gateState = newGateState;  // установили флаг состояния ворот
+
+  if (digitalRead(pir1)) pir1State = 1;
+  else pir1State = 0;  // если появился сигнал на входе pir1
+  if (digitalRead(pir2)) pir2State = 1;
+  else pir2State = 0;  // если появился сигнал на входе pir2
   // если все датчики в состоянии покоя
-  if (!pir1State && !pir2State) idleState = 1; else idleState = 0;
+  if (!pir1State && !pir2State) idleState = 1;
+  else idleState = 0;
 }
 
 // функция вычисляет давление насыщенного пара воды при заданной температуре (для апроксимации внесены табличные данные от -20С до 40С )
 float vaporPressure(float t) {
- float k4 = 0,0000005;  // коэффициент при квадратичном члене многочлена
- float k3 = 0,00002;    // коэффициент при кубическом члене многочлена
- float k2 = 0,0014;     // коэффициент при квадратичном члене многочлена
- float k1 = 0,0459;     // коэффициент при линейном члене многочлена
- float k = 0,6053;      // коэффициент при нулевом члене многочлена
- float pressure = k4 * pow (t, 4) + k3 * pow (t, 3) + k2 * pow (t, 2) + k1 * t + k;
- return pressure;  
-}  
+  double k4 = 0.000000463; // коэффициент при четырехстепенном члене многочлена
+  double k3 = 0.00002461;  // коэффициент при кубическом члене многочлена
+  double k2 = 0.00135571;  // коэффициент при квадратичном члене многочлена
+  double k1 = 0.0459398;   // коэффициент при линейном члене многочлена
+  double k = 0.60534;      // коэффициент при нулевом члене многочлена
+  float pressure = k4 * pow(t, 4) + k3 * pow(t, 3) + k2 * pow(t, 2) + k1 * t + k;
+  return pressure;
+}
 
 // функция переводит влажность h1 при температуре t1 во влажность при температуре t2
 float humConversion(float h1, float t1, float t2) {
-  float p1 = vaporPressure(t1); расчитали ДНП при t1
-  float p2 = vaporPressure(t2); расчитали ДНП при t2
-  float h2 = h1 * (p1 / p2);
-  return h2;  
+  float p1 = vaporPressure(t1); // расчитали ДНП при t1 
+  float p2 = vaporPressure(t2); // расчитали ДНП при t2 
+  float h2 = h1 * (p1 / p2);    // расчитали приведенную влажность
+  return h2;
 }
