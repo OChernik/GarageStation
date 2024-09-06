@@ -121,7 +121,7 @@ void closeGate() {
   idleTime = 0;                  // сброс времени покоя
 }  // end closeGate
 
-// функция считывает все датчики и выставляет флаги и таймер выезда машины carLeaveTmr
+// функция считывает все датчики, выставляет флаги и таймер выезда машины carLeaveTmr
 void sensorsRead() {
   sht4x.measureHighPrecision(tempTemperature, tempHumidity);  // SensirionI2cSht4x.h
   if ((millis() - heat4xStart) < 30000) {                     // сразу после нагрева выводим данные как есть
@@ -134,17 +134,19 @@ void sensorsRead() {
   }
   sht3x.measureSingleShot(REPEATABILITY_HIGH, false, tempTemperature, tempHumidity);  // SensirionI2cSht3x.h
   temperatureGarage = checkValue(tempTemperature, temperatureGarage, -5, 35, 2);
-  humidityGarage = myData.hum3xCorrection + checkValue(tempHumidity, humidityGarage, 20, 95, 2);
+  humidityGarage = myData.hum3xCorrection + checkValue(tempHumidity, humidityGarage, 20, 95, 3);
   temperatureBox = checkValue(bme.readTemperature(), temperatureBox, 5, 45, 1);        // GyverBME280.h
   pressure = checkValue((pressureToMmHg(bme.readPressure())), pressure, 720, 770, 1);  // GyverBME280.h
   rssi = WiFi.RSSI();
-  // считаем уличную влажность при температуре в гараже
+  // считаем уличную влажность при температуре в гараже (Приведенная влажность)
   humidityCalc = humConversion(humidityOut, temperatureOut, temperatureGarage);
 
   distance = sonar.ping_cm();  // определили расстояние до машины
   bool newCarStatus;
   (distance > 100) ? (newCarStatus = 0) : (newCarStatus = 1);  // определили статус машины - в гараже или нет
-  if (newCarStatus < carStatus) carLeaveTmr = millis();        // если машина выехала, установили таймер  выезда машины из гаража
+  // если машина выехала, установили таймер  выезда машины из гаража, если приехала, обнулили таймер выезда машины 
+  (newCarStatus < carStatus) ? (carLeaveTmr = millis()) : (carLeaveTmr = 0);        
+  
   carStatus = newCarStatus;                                    // установили статус машины
 
   bool newGateState = digitalRead(gercon);  // считали состояние ворот
