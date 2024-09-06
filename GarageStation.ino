@@ -381,9 +381,9 @@ void loop() {
 
   // закрываем ворота через carLeavePeriod после выезда машины. carLeaveTmr отмечает время выезда машины
   // закрытие ворот при условии, что выезд произошел раньше, чем gateOpenedPeriod после открытия ворот
-  // carLeaveTmr = 0 после закрытия ворот
+  // carLeaveTmr = 0 после закрытия ворот или после появления машины в гараже 
   if(carLeaveTmr && gateState && (millis() - carLeaveTmr > carLeavePeriod) \
-    && (millis() - gateOpenedTmr < gateOpenedPeriod)) {
+    && (millis() - gateOpenedTmr < gateOpenedPeriod)) {    
     closeGate();  // закрываем ворота    
   }
 
