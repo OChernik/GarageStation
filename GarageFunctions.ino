@@ -121,24 +121,29 @@ void closeGate() {
   idleTime = 0;                  // сброс времени покоя
 }  // end closeGate
 
-// функция считывает все датчики, выставляет флаги и таймер выезда машины carLeaveTmr
+// функция считывает все датчики и выставляет флаги и таймер выезда машины carLeaveTmr
 void sensorsRead() {
-  sht4x.measureHighPrecision(tempTemperature, tempHumidity);  // SensirionI2cSht4x.h
-  if ((millis() - heat4xStart) < 30000) {                     // сразу после нагрева выводим данные как есть
+  sensorOut.measureHighPrecision(tempTemperature, tempHumidity); // SensirionI2cSht4x.h
+  if ((millis() - heat4xStart) < 30000) {                        // сразу после нагрева выводим данные как есть
     temperatureOut = tempTemperature;
-    humidityOut = myData.hum4xCorrection + tempHumidity;
+    humidityOut = myData.humOutCorrection + tempHumidity;
   } else {  // через 30 секунд начинается фильтрация
     temperatureOut = checkValue(tempTemperature, temperatureOut, -35, 40, 2);
-    humidityOut = myData.hum4xCorrection + tempHumidity;
-    // humidityOut = myData.hum4xCorrection + checkValue(tempHumidity, humidityOut, 20, 95, 2);
+    humidityOut = myData.humOutCorrection + tempHumidity;
+    // humidityOut = myData.humOutCorrection + checkValue(tempHumidity, humidityOut, 20, 95, 2);
   }
-  sht3x.measureSingleShot(REPEATABILITY_HIGH, false, tempTemperature, tempHumidity);  // SensirionI2cSht3x.h
+  sensorIn.measureSingleShot(REPEATABILITY_HIGH, false, tempTemperature, tempHumidity);  // SensirionI2cSht3x.h
   temperatureGarage = checkValue(tempTemperature, temperatureGarage, -5, 35, 2);
-  humidityGarage = myData.hum3xCorrection + checkValue(tempHumidity, humidityGarage, 20, 95, 3);
+  humidityGarage = myData.humInCorrection + tempHumidity;
+  // humidityGarage = myData.humInCorrection + checkValue(tempHumidity, humidityGarage, 15, 95, 2);
+  // sensorOut.measureSingleShot(REPEATABILITY_HIGH, false, tempTemperature, tempHumidity);  // SensirionI2cSht3x.h
+  // temperatureOut = checkValue(tempTemperature, temperatureGarage, -25, 45, 2);
+  // humidityOut = myData.humOutCorrection + tempHumidity;
+  // humidityOut = myData.humOutCorrection + checkValue(tempHumidity, humidityGarage, 15, 95, 2);
   temperatureBox = checkValue(bme.readTemperature(), temperatureBox, 5, 45, 1);        // GyverBME280.h
   pressure = checkValue((pressureToMmHg(bme.readPressure())), pressure, 720, 770, 1);  // GyverBME280.h
   rssi = WiFi.RSSI();
-  // считаем уличную влажность при температуре в гараже (Приведенная влажность)
+  // считаем уличную влажность при температуре в гараже
   humidityCalc = humConversion(humidityOut, temperatureOut, temperatureGarage);
 
   distance = sonar.ping_cm();  // определили расстояние до машины
@@ -146,7 +151,6 @@ void sensorsRead() {
   (distance > 100) ? (newCarStatus = 0) : (newCarStatus = 1);  // определили статус машины - в гараже или нет
   // если машина выехала, установили таймер  выезда машины из гаража, если приехала, обнулили таймер выезда машины 
   (newCarStatus < carStatus) ? (carLeaveTmr = millis()) : (carLeaveTmr = 0);        
-  
   carStatus = newCarStatus;                                    // установили статус машины
 
   bool newGateState = digitalRead(gercon);  // считали состояние ворот
@@ -157,7 +161,7 @@ void sensorsRead() {
   if (newGateState < gateState) {  // если ворота закрылись, установили флаги
     gateOpened = 0;
     gateClosed = 1;                // при закрытии ворот меняется содержимое ПУ
-    carLeaveTmr = 0;               // таймер нужно сбросить на 0 чтобы ворота не закрылись сразу после открытия 
+    carLeaveTmr = 0;               // таймер нужно сбросить на 0 чтобы случайно не закрылись ворота
   }
   // if (newGateState = gateState) {  // если состояние ворот не поменялось, установили флаги
   //   gateOpened = 0;
@@ -169,18 +173,20 @@ void sensorsRead() {
   else pir1State = 0;  // если появился сигнал на входе pir1
   if (digitalRead(pir2)) pir2State = 1;
   else pir2State = 0;  // если появился сигнал на входе pir2
+  if (digitalRead(pir3)) pir3State = 1;
+  else pir3State = 0;  // если появился сигнал на входе pir3  
   // если все датчики в состоянии покоя
-  if (!pir1State && !pir2State) idleState = 1;
+  if (!pir1State && !pir2State && !pir3State) idleState = 1;
   else idleState = 0;
 }
 
 // функция вычисляет давление насыщенного пара воды при заданной температуре (для апроксимации внесены табличные данные от -20С до 40С )
 float vaporPressure(float t) {
-  double k4 = 0.000000463; // коэффициент при члене четвертой степени многочлена 
-  double k3 = 0.00002461;  // коэффициент при члене третьей степени многочлена 
-  double k2 = 0.00135571;  // коэффициент при члене второй степени многочлена 
+  double k4 = 0.000000463; // коэффициент при четырехстепенном члене многочлена
+  double k3 = 0.00002461;  // коэффициент при кубическом члене многочлена
+  double k2 = 0.00135571;  // коэффициент при квадратичном члене многочлена
   double k1 = 0.0459398;   // коэффициент при линейном члене многочлена
-  double k = 0.60534;      // константа
+  double k = 0.60534;      // коэффициент при нулевом члене многочлена
   float pressure = k4 * pow(t, 4) + k3 * pow(t, 3) + k2 * pow(t, 2) + k1 * t + k;
   return pressure;
 }
