@@ -1,5 +1,6 @@
 // датчик движения PIR1 GPIO26
 // датчик движения PIR2 GPIO27
+// датчик движения PIR3 GPIO35
 // датчик расстояния HC-SR04 ECHO GPIO34 TRIGGER GPIO35
 // реле управления вентилятором GPIO16
 // реле управления воротами GPIO18
@@ -9,15 +10,19 @@
 // Esp32 с антенной
 
 // Настройки____________________________________________________________________
+const char* ssid = "*********";        // wifi Login
+const char* password = "*********";        // wifi Password
+const char* mqttLogin = "*********";        // mqtt Login
+const char* mqttPass = "*********";         // mqtt Password
 
-const char* ssid = "*********";           // wifi Login
-const char* password = "********";        // wifi Password
-const char* hubPrefix = "*********";      // GyverHub hubPrefix
-const char* hubClientID = "********";     // GyverHub Client ID
-const char* OpenMonKey = "********";      // Open Monitoring Key
+const char* hubPrefix = "*********";  // GyverHub hubPrefix
+const char* hubClientID = "*********";        // GyverHub Client ID
+const char* OpenMonKey = "*********";         // Open Monitoring Key
+const char* otaPass = "*********";          // OTA Password
 
 #define pir1 26                           // sensor PIR1 to GPIO26
 #define pir2 27                           // sensor PIR2 to GPIO27
+#define pir3 35                           // sensor PIR2 to GPIO35
 #define echoPin 34                        // HC-SR04 ECHO to GPIO34
 #define triggerPin 32                     // HC-SR04 TRIGGER to GPIO35
 #define MaxDistance 300                   // HC-SR04 максимально возможное расстояние
@@ -27,8 +32,8 @@ const char* OpenMonKey = "********";      // Open Monitoring Key
 #define idleTimePeriod 5 * 60 * 1000L     // время отсутствия движения, через которое закрываются ворота
 // если время между открытием ворот и выездом машины меньше gateOpenedPeriod, 
 // ворота будут автоматически закрываться через carLeavePeriod после выезда из гаража 
-#define gateOpenedPeriod 5 * 60 * 1000L     
-#define carLeavePeriod 20 * 1000L         // через какое время после выезда машины из гаража закрываются ворота
+// #define gateOpenedPeriod 5 * 60 * 1000L     
+// #define carLeavePeriod 20 * 1000L         // через какое время после выезда машины из гаража закрываются ворота
 #define sensorReadPeriod 2 * 1000         // период между опросом датчиков в мс.
 #define openMonPeriod 5 * 60 * 1000L      // период между отправкой данных на сервер ОМ в мс.
 #define narodMonPeriod 6 * 60 * 1000L     // период между отправкой данных на сервер NM в мс.
@@ -61,18 +66,22 @@ const char* OpenMonKey = "********";      // Open Monitoring Key
 #include <LittleFS.h>  // для сохранения переменных в памяти ESP32 вместо EEPROM
 
 struct Data {                  // структура для хранения настроек в памяти ESP32
-  int8_t hum3xCorrection = 0;  // поправка влажности датчика внутри гаража 
-  int8_t hum4xCorrection = 0;  // поправка влажности датчика на улице 
+  int8_t humInCorrection = 0;  // поправка влажности датчика внутри гаража 
+  int8_t humOutCorrection = 0;  // поправка влажности датчика на улице 
   uint8_t deltaHumidity = 10;  // порог автовключения вентилятора 
   uint8_t hysteresis = 1;      // разница влажности между включением и выключением вентилятора. Чтобы реле 220V не щелкало слишком часто
+ // если время между открытием ворот и выездом машины меньше gateOpenedPeriod, 
+ // ворота будут автоматически закрываться через carLeavePeriod после выезда из гаража  
+  uint32_t gateOpenedPeriod = 300000;
+  uint32_t carLeavePeriod = 20000;      // через какое время после выезда машины из гаража закрываются ворота
 };
 Data myData;                   // создаем переменную myData со структурой Data  
 // создание объекта data библиотеки FileData для сохранения настроек на флеше ESP32
-FileData data(&LittleFS, "/myData.dat", 'A', &myData, sizeof(myData)); 
+FileData data(&LittleFS, "/myData.dat", 'N', &myData, sizeof(myData)); 
 
 // Объекты библиотек____________________________________________________________________________________
-SensirionI2cSht3x sht3x;                          // создание объекта датчика sht3x библиотеки SensirionI2cSht3x
-SensirionI2cSht4x sht4x;                          // создание объекта датчика sht4x библиотеки SensirionI2cSht4x
+SensirionI2cSht3x sensorIn;                       // создание объекта датчика sensorIn в гараже 
+SensirionI2cSht4x sensorOut;                      // создание объекта датчика sensorOut на улице 
 GyverBME280 bme;                                  // Создание обьекта bme
 GyverOLED<SSH1106_128x64> oled;                   // создание объекта экрана SSH1106 1,3''
 HTTPClient http;                                  // создаем объект http библиотеки HTTPClient
@@ -163,12 +172,14 @@ void build(gh::Builder& b) {      // билдер GyverHub.
   // статус ворот
   if (gateState) {  // если ворота открыты
     if (b.beginRow()) {
-      if (b.Switch_(F("gateSwitch"), &gateState).label(F("Ворота открыты. Закрыть?")).click()) {
-        closeGate();       // закрываем ворота         
+      if (b.Switch_(F("gateSwitch"), &gateState).size(2).label(F("Закрыть ворота?")).click()) {
+        closeGate();       // закрываем ворота
+        gateClosed = 1;         
       }
-      b.LED_(F("PIR1"), &pir1State).label(F("PIR1"));
-      b.LED_(F("PIR2"), &pir2State).label(F("PIR2"));
-      b.Label_(F("IDLE"), idleSec).label(F("Время покоя")).color(gh::Colors::Aqua);
+      b.LED_(F("PIR1"), &pir1State).label(F("PIR1")).size(1);
+      b.LED_(F("PIR2"), &pir2State).label(F("PIR2")).size(1);
+      b.LED_(F("PIR3"), &pir3State).label(F("PIR3")).size(1);
+      b.Label_(F("IDLE"), idleSec).label(F("Время покоя")).size(2).color(gh::Colors::Aqua);
       b.endRow();
     }
   } else {
@@ -178,7 +189,7 @@ void build(gh::Builder& b) {      // билдер GyverHub.
     if (carStatus) {
       b.Title_(F("Car"), F("Машина в гараже")).fontSize(32).color(gh::Colors::Green);
     } else {
-      b.Title_(F("Car"), F("Машины нет")).fontSize(32).color(gh::Colors::Orange);
+      b.Title_(F("Car"), F("Машина не в гараже")).fontSize(32).color(gh::Colors::Orange);
     }
     b.endRow();
   }
@@ -186,8 +197,8 @@ void build(gh::Builder& b) {      // билдер GyverHub.
   b.show(b.menu() == 1); // если выбран пункт меню 1: Настройки гаража  
   // добавляем спиннеры с поправкой влажности
   if (b.beginRow()) {
-    if (b.Spinner(&myData.hum4xCorrection).range(-10, 10, 1).label(F("Поправка влажности на улице")).click()) data.update();
-    if (b.Spinner(&myData.hum3xCorrection).range(-10, 10, 1).label(F("Поправка влажности в гараже")).click()) data.update();
+    if (b.Spinner(&myData.humOutCorrection).range(-10, 10, 1).label(F("Поправка влажности на улице")).click()) data.update();
+    if (b.Spinner(&myData.humInCorrection).range(-10, 10, 1).label(F("Поправка влажности в гараже")).click()) data.update();
     b.endRow();
   }  
   // добавляем спиннеры с дельтой включения вентилятора и гистерезисом
@@ -195,13 +206,20 @@ void build(gh::Builder& b) {      // билдер GyverHub.
     if (b.Spinner(&myData.deltaHumidity).range(0, 15, 1).label(F("Дельта влажности")).click()) data.update();
     if (b.Spinner(&myData.hysteresis).range(0, 5, 1).label(F("Гистерезис")).click()) data.update();
     b.endRow();
+  } 
+  // добавляем спиннеры с gateOpenedPeriod и carLeavePeriod
+  if (b.beginRow()) {
+    if (b.Spinner(&myData.gateOpenedPeriod).range(0, 1200000, 60000).label(F("gateOpenedPeriod")).click()) data.update();
+    if (b.Spinner(&myData.carLeavePeriod).range(0, 60000, 5000).label(F("carLeavePeriod")).click()) data.update();
+    b.endRow();
   }  
 }  // end void build()
 
 // Setup______________________________________________________________________________________________
 void setup() {
-  pinMode(pir1, INPUT_PULLDOWN);    // подтягиваем вход датчика pir1 к земле
-  pinMode(pir2, INPUT_PULLDOWN);    // подтягиваем вход датчика pir2 к земле
+  pinMode(pir1, INPUT_PULLDOWN);    // определяем вход датчика pir1 и подтягиваем его к земле
+  pinMode(pir2, INPUT_PULLDOWN);    // определяем вход датчика pir2 и подтягиваем его к земле
+  pinMode(pir3, INPUT_PULLDOWN);    // определяем вход датчика pir3 и подтягиваем его к земле
   pinMode(relayVent, OUTPUT);       // пин реле вентилятора - выход
   pinMode(relayGate, OUTPUT);       // пин реле ворот - выход
   pinMode(gercon, INPUT_PULLDOWN);  // подтягиваем вход геркона к земле
@@ -219,15 +237,19 @@ void setup() {
   data.read();                           // считываем данные настроек из флеша
 
   Serial.begin(115200);
-  Wire.begin();                          // SensirionI2cSht3x.h and SensirionI2cSht4x.h
-  sht3x.begin(Wire, SHT31_I2C_ADDR_45);  // SensirionI2cSht3x.h
-  sht4x.begin(Wire, SHT41_I2C_ADDR_44);  // SensirionI2cSht4x.h
-  bme.begin();                           // инициализируем датчик BMP280
+  Wire.begin();                             // SensirionI2cSht3x.h and SensirionI2cSht4x.h
+  // Wire.setClock(100000);                 // для более надежной связи по длинным кабелям к датчикам
+  sensorIn.begin(Wire, SHT31_I2C_ADDR_45);  // SensirionI2cSht3x.h
+  sensorOut.begin(Wire, SHT41_I2C_ADDR_44); // SensirionI2cSht4x.h
+  bme.begin();                              // инициализируем датчик BMP280
 
   oled.init();                   // инициализация дисплея
   oled.setContrast(10);          // яркость 0..255
   oled.textMode(BUF_REPLACE);    // вывод текста на экран с заменой символов
   oled.invertDisplay(oledFlag);  // вывод текста на экран с заменой символов
+  oled.flipH(true);              // true/false - отзеркалить по горизонтали (для переворота экрана)
+  oled.flipV(true);              // true/false - отзеркалить по вертикали (для переворота экрана)
+
 
   initWiFi();  // установили соединение WiFi
 
@@ -259,15 +281,18 @@ void setup() {
     });
 
   ArduinoOTA.setHostname("ESP32_Garage");
+  ArduinoOTA.setPassword(otaPass);
   ArduinoOTA.begin();
 
-  hub.mqtt.config(F("test.mosquitto.org"), 1883);  // подключаем MQTT сервис
+  hub.mqtt.config("m6.wqtt.ru", 17108, mqttLogin, mqttPass);  // подключаем MQTT сервис
+  // hub.mqtt.config(F("test.mosquitto.org"), 1883);          // подключаем MQTT сервис
   hub.config(hubPrefix, F("Garage"), F("f494"));   // конфигурация GyverHub
   hub.onBuild(build);
   hub.begin();
   // устанавливаем начальные измеряемые значения для корректной работы фильтра checkValue
-  sht3x.measureSingleShot(REPEATABILITY_HIGH, false, temperatureGarage, humidityGarage);  // SensirionI2cSht3x.h
-  sht4x.measureHighPrecision(temperatureOut, humidityOut);                                // SensirionI2cSht4x.h
+  sensorIn.measureSingleShot(REPEATABILITY_HIGH, false, temperatureGarage, humidityGarage);  // SensirionI2cSht3x.h
+  // sensorOut.measureSingleShot(REPEATABILITY_HIGH, false, temperatureOut, humidityOut);       // SensirionI2cSht3x.h
+  sensorOut.measureHighPrecision(temperatureOut, humidityOut);                               // SensirionI2cSht4x.h
   temperatureBox = bme.readTemperature();
   pressure = pressureToMmHg(bme.readPressure());
 }  // end void Setup()
@@ -294,6 +319,7 @@ void loop() {
       idleSec = round(idleTime / 1000);
       hub.sendUpdate("PIR1");      // обновляем состояние PIR1
       hub.sendUpdate("PIR2");      // обновляем состояние PIR2
+      hub.sendUpdate("PIR3");      // обновляем состояние PIR3
       hub.sendUpdate("IDLE");      // обновляем состояние IdleSec
     }
   }
@@ -316,18 +342,18 @@ void loop() {
     heat3xFlag = !heat3xFlag;  // переключаем флаг состояния нагрева датчика
     if (heat3xFlag) {          // если включен нагрев
       heat3xStart = millis();  // сохраняем время начала нагрева
-      sht3x.enableHeater();    // включаем нагрев датчика
+      sensorIn.enableHeater();    // включаем нагрев датчика в гараже
     } else {
-      sht3x.disableHeater();   // выключаем нагрев датчика
+      sensorIn.disableHeater();   // выключаем нагрев датчика в гараже
     }
   }  // end If
 
   // подогреваем датчик SHT41 если Humidity > heat4xBorder
   // с периодом heat4xPeriod включаем прогрев датчика SHT41 на 1 секунду
   if ((humidityOut > heat4xBorder) && heat4xTmr.tick()) {
-    heat4xStart = millis();                                              // сохраняем время начала нагрева датчика
-    sht4x.activateHighestHeaterPowerLong(temperatureOut, tempHumidity);  // SensirionI2cSht4x.h
-    humidityOut = tempHumidity + myData.hum4xCorrection;                 // SensirionI2cSht4x.h
+    heat4xStart = millis();                                                 // сохраняем время начала нагрева датчика
+    sensorOut.activateHighestHeaterPowerLong(temperatureOut, tempHumidity); // SensirionI2cSht4x.h
+    humidityOut = tempHumidity + myData.humOutCorrection;                   // SensirionI2cSht4x.h
     showScreen();                                                        // вывод показаний датчиков на экран
     delay(1000);                                                         // чтобы заметить макс. темп. и RH на дисплее. Не придумал, как обойтись без delay
   }                                                                      // end If
@@ -382,8 +408,8 @@ void loop() {
   // закрываем ворота через carLeavePeriod после выезда машины. carLeaveTmr отмечает время выезда машины
   // закрытие ворот при условии, что выезд произошел раньше, чем gateOpenedPeriod после открытия ворот
   // carLeaveTmr = 0 после закрытия ворот или после появления машины в гараже 
-  if(carLeaveTmr && gateState && (millis() - carLeaveTmr > carLeavePeriod) \
-    && (millis() - gateOpenedTmr < gateOpenedPeriod)) {    
+  if(carLeaveTmr && gateState && (millis() - carLeaveTmr > myData.carLeavePeriod) \
+    && (millis() - gateOpenedTmr < myData.gateOpenedPeriod)) {
     closeGate();  // закрываем ворота    
   }
 
