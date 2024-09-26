@@ -40,13 +40,14 @@ void showScreen() {
   oled.update();            // Вывод содержимого буфера на дисплей. Только при работе с буфером.
 }  // end showScreen
 
-// функция фильтрует величину, измеренную датчиком, по алгоритму "бегущее среднее"
-// с адаптивным коэффициентом
+// функция усредняет значение, измеренное датчиком, по алгоритму "бегущее среднее"
+// с адаптивным коэффициентом фильтрации
 // newValue - новое значение, требующее усреднения. filtValue - предыдущее уже усредненное
-float checkValue(float newValue, float filtValue) {
+// delta максимальная разница, выше которой применяется повышенный коэффициент фильтрации
+float filterValue(float newValue, float filtValue, float delta) {
   float k;    // коэффициент фильтрации. от 0 до 1. Чем меньше, тем плавнее фильтр
   // резкость фильтра зависит от модуля разности значений
-  if (abs(newValue - filtValue) > 0.5) k = 0.9;
+  if (abs(newValue - filtValue) > delta) k = 0.3;
   else k = 0.1;  
   filtValue += (newValue - filtValue) * k;
   return filtValue;  
@@ -129,20 +130,17 @@ void sensorsRead() {
     temperatureOut = tempTemperature;
     humidityOut = myData.humOutCorrection + tempHumidity;
   } else {  // через 30 секунд начинается фильтрация
-    temperatureOut = checkValue(tempTemperature, temperatureOut);
-    // humidityOut = myData.humOutCorrection + tempHumidity;
-    humidityOut = myData.humOutCorrection + checkValue(tempHumidity, humidityOut);
+    temperatureOut = filterValue(tempTemperature, temperatureOut, 0.05);
+    humidityOut = myData.humOutCorrection + filterValue(tempHumidity, humidityOut, 0.05);
   }
   sensorIn.measureSingleShot(REPEATABILITY_HIGH, false, tempTemperature, tempHumidity);  // SensirionI2cSht3x.h
-  temperatureGarage = checkValue(tempTemperature, temperatureGarage);
-  humidityGarage = myData.humInCorrection + tempHumidity;
-  // humidityGarage = myData.humInCorrection + checkValue(tempHumidity, humidityGarage);
+  temperatureGarage = filterValue(tempTemperature, temperatureGarage, 0.05);
+  humidityGarage = myData.humInCorrection + filterValue(tempHumidity, humidityGarage, 0.05);
   // sensorOut.measureSingleShot(REPEATABILITY_HIGH, false, tempTemperature, tempHumidity);  // SensirionI2cSht3x.h
-  // temperatureOut = checkValue(tempTemperature, temperatureGarage);
-  // humidityOut = myData.humOutCorrection + tempHumidity;
-  // humidityOut = myData.humOutCorrection + checkValue(tempHumidity, humidityGarage);
-  temperatureBox = checkValue(bme.readTemperature(), temperatureBox);     // GyverBME280.h
-  pressure = checkValue((pressureToMmHg(bme.readPressure())), pressure);  // GyverBME280.h
+  // temperatureOut = filterValue(tempTemperature, temperatureGarage, 0.05);
+  // humidityOut = myData.humOutCorrection + filterValue(tempHumidity, humidityGarage, 0.05);
+  temperatureBox = filterValue(bme.readTemperature(), temperatureBox, 0.05);        // GyverBME280.h
+  pressure = filterValue((pressureToMmHg(bme.readPressure())), pressure, 0.05);     // GyverBME280.h
   rssi = WiFi.RSSI();
   // считаем уличную влажность при температуре в гараже
   humidityCalc = humConversion(humidityOut, temperatureOut, temperatureGarage);
