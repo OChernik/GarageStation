@@ -40,15 +40,16 @@ void showScreen() {
   oled.update();            // Вывод содержимого буфера на дисплей. Только при работе с буфером.
 }  // end showScreen
 
-// функция проверяет величину, измеренную датчиком, на вхождение в допустимый диапазон значений
-// и на отсутствие резких изменений
-// если измеренное значние соответствует диапазону, возвращает измеренное значение, если нет, то предыдущее
-// newValue - новое значение, требующее проверки. oldValue - предыдущее значение
-// minValue, maxValue - диапазон допустимых значений величины
-// delta - максимальная допустимая разница между замерами
-float checkValue(float newValue, float oldValue, int minValue, int maxValue, int delta) {
-  if (newValue >= minValue && newValue <= maxValue && abs(newValue - oldValue) <= delta) return newValue;
-  else return oldValue;
+// функция фильтрует величину, измеренную датчиком, по алгоритму "бегущее среднее"
+// с адаптивным коэффициентом
+// newValue - новое значение, требующее усреднения. filtValue - предыдущее уже усредненное
+float checkValue(float newValue, float filtValue) {
+  float k;    // коэффициент фильтрации. от 0 до 1. Чем меньше, тем плавнее фильтр
+  // резкость фильтра зависит от модуля разности значений
+  if (abs(newValue - filtValue) > 0.5) k = 0.9;
+  else k = 0.1;  
+  filtValue += (newValue - filtValue) * k;
+  return filtValue;  
 }
 
 // функция отсылает данные на open-monitoring.online
@@ -128,20 +129,20 @@ void sensorsRead() {
     temperatureOut = tempTemperature;
     humidityOut = myData.humOutCorrection + tempHumidity;
   } else {  // через 30 секунд начинается фильтрация
-    temperatureOut = checkValue(tempTemperature, temperatureOut, -35, 40, 2);
-    humidityOut = myData.humOutCorrection + tempHumidity;
-    // humidityOut = myData.humOutCorrection + checkValue(tempHumidity, humidityOut, 20, 95, 2);
+    temperatureOut = checkValue(tempTemperature, temperatureOut);
+    // humidityOut = myData.humOutCorrection + tempHumidity;
+    humidityOut = myData.humOutCorrection + checkValue(tempHumidity, humidityOut);
   }
   sensorIn.measureSingleShot(REPEATABILITY_HIGH, false, tempTemperature, tempHumidity);  // SensirionI2cSht3x.h
-  temperatureGarage = checkValue(tempTemperature, temperatureGarage, -5, 35, 2);
+  temperatureGarage = checkValue(tempTemperature, temperatureGarage);
   humidityGarage = myData.humInCorrection + tempHumidity;
-  // humidityGarage = myData.humInCorrection + checkValue(tempHumidity, humidityGarage, 15, 95, 2);
+  // humidityGarage = myData.humInCorrection + checkValue(tempHumidity, humidityGarage);
   // sensorOut.measureSingleShot(REPEATABILITY_HIGH, false, tempTemperature, tempHumidity);  // SensirionI2cSht3x.h
-  // temperatureOut = checkValue(tempTemperature, temperatureGarage, -25, 45, 2);
+  // temperatureOut = checkValue(tempTemperature, temperatureGarage);
   // humidityOut = myData.humOutCorrection + tempHumidity;
-  // humidityOut = myData.humOutCorrection + checkValue(tempHumidity, humidityGarage, 15, 95, 2);
-  temperatureBox = checkValue(bme.readTemperature(), temperatureBox, 5, 45, 1);        // GyverBME280.h
-  pressure = checkValue((pressureToMmHg(bme.readPressure())), pressure, 720, 770, 1);  // GyverBME280.h
+  // humidityOut = myData.humOutCorrection + checkValue(tempHumidity, humidityGarage);
+  temperatureBox = checkValue(bme.readTemperature(), temperatureBox);     // GyverBME280.h
+  pressure = checkValue((pressureToMmHg(bme.readPressure())), pressure);  // GyverBME280.h
   rssi = WiFi.RSSI();
   // считаем уличную влажность при температуре в гараже
   humidityCalc = humConversion(humidityOut, temperatureOut, temperatureGarage);
