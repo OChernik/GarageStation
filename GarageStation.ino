@@ -16,9 +16,11 @@ const char* mqttLogin = "*********";        // mqtt Login
 const char* mqttPass = "*********";         // mqtt Password
 
 const char* hubPrefix = "*********";  // GyverHub hubPrefix
-const char* hubClientID = "*********";        // GyverHub Client ID
-const char* OpenMonKey = "*********";         // Open Monitoring Key
-const char* otaPass = "*********";          // OTA Password
+const char* hubClientID = "*********";    // GyverHub Client ID
+const char* OpenMonKey = "*********";     // Open Monitoring Key
+const char* otaPass = "*********";        // OTA Password
+#define BOT_TOKEN "xxxx"                  // Telegram bot token
+#define CHAT_ID "xxxx"                    // Telegram chat ID
 
 #define pir1 26                           // sensor PIR1 to GPIO26
 #define pir2 27                           // sensor PIR2 to GPIO27
@@ -55,8 +57,8 @@ const char* otaPass = "*********";          // OTA Password
 #include <SensirionI2cSht3x.h>  // библиотека датчиков температуры и влажности SHT3х
 #include <SensirionI2cSht4x.h>  // библиотека датчиков температуры и влажности SHT4х
 #include <GyverBME280.h>        // библиотека датчика температуры и давления BMP280 или BME280
-#include <ESPmDNS.h>
-#include <WiFiUdp.h>
+// #include <ESPmDNS.h>
+// #include <WiFiUdp.h>
 #include <ArduinoOTA.h>  //бибилотека ОТА обновления по WiFi
 #include <GyverOLED.h>   //библиотека дисплея
 #include <MyTimer.h>   // тестовая библиотека простейшего таймера моего изготовления
@@ -64,6 +66,7 @@ const char* otaPass = "*********";          // OTA Password
 #include <NewPing.h>   // подключаем библиотеку NewPing для работы датчика расстояния
 #include <FileData.h>  // для сохранения переменных в памяти ESP32 вместо EEPROM
 #include <LittleFS.h>  // для сохранения переменных в памяти ESP32 вместо EEPROM
+#include <FastBot.h>   // библиотека управления телеграм-ботом
 
 struct Data {                  // структура для хранения настроек в памяти ESP32
   int8_t humInCorrection = 0;  // поправка влажности датчика внутри гаража 
@@ -91,6 +94,7 @@ MyTimer heat4xTmr(heat4xPeriod);                  // создаем объект
 MyTimer checkWifiTmr(checkWifiPeriod);            // создаем объект checkWifiTmr таймера MyTimer с периодом checkWifiPeriod
 MyTimer sensorReadTmr(sensorReadPeriod);          // создаем объект sensorReadTmr таймера MyTimer с периодом sensorReadPeriod
 GyverHub hub;                                     // создаем объект GyverHub
+FastBot bot(BOT_TOKEN);                           // создаем объект FastBot
 NewPing sonar(triggerPin, echoPin, MaxDistance);  // создаем объект NewPing
 
 // Переменные___________________________________________________________________________________
@@ -289,6 +293,13 @@ void setup() {
   hub.config(hubPrefix, F("Garage"), F("f494"));   // конфигурация GyverHub
   hub.onBuild(build);
   hub.begin();
+
+  bot.setChatID(CHAT_ID);                       // задаем  CHAT_ID бота
+  bot.setPeriod(5000);                          // период опроса в мс (по умолч. 3500)
+  bot.attach(newMsg);                           // подключаем функцию-обработчик сообщений
+  bot.showMenu("Vent_ON \t Vent_OFF");          // показываем меню бота с сообщением
+  // bot.showMenu("Menu1 \t Menu2 \t Menu3 \n Close");
+  
   // устанавливаем начальные измеряемые значения для корректной работы фильтра checkValue
   sensorIn.measureSingleShot(REPEATABILITY_HIGH, false, temperatureGarage, humidityGarage);  // SensirionI2cSht3x.h
   // sensorOut.measureSingleShot(REPEATABILITY_HIGH, false, temperatureOut, humidityOut);       // SensirionI2cSht3x.h
@@ -305,6 +316,8 @@ void loop() {
  
   data.tick();           // сохранение настроек по таймауту
 
+  bot.tick();            // тикаем для работы телеграм бота
+  
   hub.tick();                      // тикаем для нормальной работы конструктора интерфейса
   static gh::Timer tmr(2000);      // период 2 секунды
   if (tmr) {                       // если прошел период
