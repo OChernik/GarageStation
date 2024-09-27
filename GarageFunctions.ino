@@ -1,3 +1,15 @@
+// Обработчик сообщений Телеграм бота
+void newMsg(FB_msg& msg) {
+  if (msg.text == "Vent_ON" && !ventAuto){
+     ventState = 1;                          // включили вентилятор
+     bot.sendMessage("Вентилятор включен");  // отправили сообщение
+  }
+    if (msg.text == "Vent_OFF" && !ventAuto){
+     ventState = 0;                            // отключили вентилятор
+     bot.sendMessage("Вентилятор остановлен"); // отправили сообщение
+  }
+}  // end void newMsg
+
 // Функция устанавливает WiFi соединения
 void initWiFi() {
   WiFi.mode(WIFI_STA);
