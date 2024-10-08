@@ -1,13 +1,61 @@
 // Обработчик сообщений Телеграм бота
 void newMsg(FB_msg& msg) {
-  if (msg.text == "Vent_ON" && !ventAuto){
-     ventState = 1;                          // включили вентилятор
-     bot.sendMessage("Вентилятор включен");  // отправили сообщение
+
+  String msgID = msg.chatID;  // сохраняем chatID запроса, чтобы отправлять ответы только запросившему
+  // if (msg.OTA && msg.chatID == OLEG_ID) bot.update();  // разрешить обновление прошивки для Олега
+
+  if (msg.text == "/state_garage"|| msg.text == "Состояние гаража") {
+    String buf;
+    if (gateState) buf = F("Ворота открыты\n");
+    else buf = "Ворота закрыты\n";
+    if (ventState) buf += F("Вент. включен\n");
+    else buf += F("Вент. выключен\n");
+    if (ventAuto) buf += F("Авто режим\n");
+    else buf += F("Ручной режим\n");
+    if (carStatus) buf += F("Машина в гараже\n");
+    else buf += F("Машины нет\n");
+    bot.sendMessage(buf, msgID);  // отправили сообщение
   }
-    if (msg.text == "Vent_OFF" && !ventAuto){
-     ventState = 0;                            // отключили вентилятор
-     bot.sendMessage("Вентилятор остановлен"); // отправили сообщение
+
+  if (msg.text == "/switch_gate"|| msg.text == "Ворота ON/OFF"){
+    String buf;
+    if (gateState) buf = "Ворота закрываются";
+    else buf = "Ворота открываются";
+    switchGate();           // отправили команду на переключение ворот
+    bot.sendMessage(buf, msgID);  // отправили сообщение
   }
+
+  if (msg.text == "/weather_out"|| msg.text == "Улица"){
+    bot.sendMessage("Температура " + String(temperatureOut) + " Влажность " + String(humidityOut), msgID);  // отправили сообщение
+  }
+
+  if (msg.text == "/weather_in"|| msg.text == "Гараж"){
+    bot.sendMessage("Температура " + String(temperatureGarage) + " Влажность " + String(humidityGarage), msgID);  // отправили сообщение
+  }
+
+  if (msg.text == "/weather_box"|| msg.text == "Корпус"){
+    bot.sendMessage("Температура " + String(temperatureBox) + " Давление " + String(pressure), msgID);  // отправили сообщение
+  }
+
+  if ((msg.text == "/vent_on" || msg.text == "Вент. ON") && !ventAuto){
+    ventState = 1;                          // включили вентилятор
+    bot.sendMessage("Вентилятор включен", msgID);  // отправили сообщение
+  }
+
+  if ((msg.text == "/vent_off" || msg.text == "Вент. OFF") && !ventAuto){
+    ventState = 0;                            // отключили вентилятор
+    bot.sendMessage("Вентилятор остановлен", msgID); // отправили сообщение
+  }
+
+  if (msg.text == "/auto_on" || msg.text == "Авто режим"){
+    ventAuto = 1;                             // включили автоматичекий режим
+    bot.sendMessage("Авто режим включен", msgID); // отправили сообщение
+  }
+
+  if (msg.text == "/auto_off" || msg.text == "Ручной режим"){
+    ventAuto = 0;                                     //  отключили автоматичекий режим
+    bot.sendMessage("Авто режим отключен", msgID); // отправили сообщение
+  }  
 }  // end void newMsg
 
 // Функция устанавливает WiFi соединения
@@ -84,7 +132,7 @@ void sendToOpenMon() {
   buf += F("&p6=");
   buf += temperatureBox;  // вывод температуры в корпусе
   buf += F("&p7=");
-  buf += rssi;  // вывод силы сигнала Wi-Fi, dBm
+  buf += ventState;       // вывод состояния вентилятора
   buf += F("&p8=");
   buf += carStatus;         // вывод статуса машины в гараже, есть или нет
   buf += F("&p9=");
@@ -126,14 +174,15 @@ void sendToNarodMon() {
   client.stop();                        // Разрываем соединение с сервером
 }
 
-// функция закрывает ворота
-void closeGate() {
-  digitalWrite(relayGate, HIGH);  // для замыкания выставляем HIGH
-  delay(500);
+// функция закрывает  и открывает ворота
+void switchGate() {
+  digitalWrite(relayGate, HIGH); // для замыкания выставляем HIGH
+  delay(300);                    // немного ждем срабатывания контроллера ворот для открытия/закрытия    
   digitalWrite(relayGate, LOW);  // для размыкания выставляем LOW
+  delay(1000);                   // немного ждем для гарантированного размыкания геркона    
   idleTimeTmr = millis();        // сброс таймера покоя
   idleTime = 0;                  // сброс времени покоя
-}  // end closeGate
+}  // end switchGate
 
 // функция считывает все датчики и выставляет флаги и таймер выезда машины carLeaveTmr
 void sensorsRead() {
@@ -142,26 +191,39 @@ void sensorsRead() {
     temperatureOut = tempTemperature;
     humidityOut = myData.humOutCorrection + tempHumidity;
   } else {  // через 30 секунд начинается фильтрация
-    temperatureOut = filterValue(tempTemperature, temperatureOut, 0.05);
-    humidityOut = myData.humOutCorrection + filterValue(tempHumidity, humidityOut, 0.05);
+    temperatureOut = tempTemperature;
+    humidityOut = myData.humOutCorrection + tempHumidity;
+    // temperatureOut = filterValue(tempTemperature, temperatureOut, 0.05);
+    // humidityOut = myData.humOutCorrection + filterValue(tempHumidity, humidityOut, 0.05);
   }
   sensorIn.measureSingleShot(REPEATABILITY_HIGH, false, tempTemperature, tempHumidity);  // SensirionI2cSht3x.h
-  temperatureGarage = filterValue(tempTemperature, temperatureGarage, 0.05);
-  humidityGarage = myData.humInCorrection + filterValue(tempHumidity, humidityGarage, 0.05);
+  temperatureGarage = tempTemperature;
+  humidityGarage = myData.humInCorrection + tempHumidity;
+  // temperatureGarage = filterValue(tempTemperature, temperatureGarage, 0.05);
+  // humidityGarage = filterValue(tempHumidity, humidityGarage, 0.05);  
   // sensorOut.measureSingleShot(REPEATABILITY_HIGH, false, tempTemperature, tempHumidity);  // SensirionI2cSht3x.h
   // temperatureOut = filterValue(tempTemperature, temperatureGarage, 0.05);
   // humidityOut = myData.humOutCorrection + filterValue(tempHumidity, humidityGarage, 0.05);
-  temperatureBox = filterValue(bme.readTemperature(), temperatureBox, 0.05);        // GyverBME280.h
-  pressure = filterValue((pressureToMmHg(bme.readPressure())), pressure, 0.05);     // GyverBME280.h
+  // temperatureBox = filterValue(bme.readTemperature(), temperatureBox, 0.05);        // GyverBME280.h
+  // pressure = filterValue((pressureToMmHg(bme.readPressure())), pressure, 0.05);     // GyverBME280.h
+  // rssi = filterValue(WiFi.RSSI(), rssi, 3);
+  temperatureBox = bme.readTemperature();         // GyverBME280.h
+  pressure = pressureToMmHg(bme.readPressure());  // GyverBME280.h
   rssi = WiFi.RSSI();
   // считаем уличную влажность при температуре в гараже
   humidityCalc = humConversion(humidityOut, temperatureOut, temperatureGarage);
+} // end void sensorsRead()
 
+// функция считывает геркон, датчик дистанции, ПИР датчики и выставляет флаги и таймер выезда машины carLeaveTmr
+void gateRead() {
   distance = sonar.ping_cm();  // определили расстояние до машины
   bool newCarStatus;
   (distance > 100) ? (newCarStatus = 0) : (newCarStatus = 1);  // определили статус машины - в гараже или нет
-  // если машина выехала, установили таймер  выезда машины из гаража, если приехала, обнулили таймер выезда машины 
-  (newCarStatus < carStatus) ? (carLeaveTmr = millis()) : (carLeaveTmr = 0);        
+  // если машина выехала, установили таймер  выезда машины из гаража
+  if (newCarStatus < carStatus) carLeaveTmr = millis(); 
+  // если машина приехала, обнулили таймер  выезда машины из гаража
+  if (newCarStatus > carStatus) carLeaveTmr = 0; 
+
   carStatus = newCarStatus;                                    // установили статус машины
 
   bool newGateState = digitalRead(gercon);  // считали состояние ворот
@@ -189,7 +251,7 @@ void sensorsRead() {
   // если все датчики в состоянии покоя
   if (!pir1State && !pir2State && !pir3State) idleState = 1;
   else idleState = 0;
-}
+}  // end void gateRead()
 
 // функция вычисляет давление насыщенного пара воды при заданной температуре (для апроксимации внесены табличные данные от -20С до 40С )
 float vaporPressure(float t) {
