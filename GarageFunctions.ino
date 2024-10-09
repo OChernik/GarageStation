@@ -2,8 +2,12 @@
 void newMsg(FB_msg& msg) {
 
   String msgID = msg.chatID;  // сохраняем chatID запроса, чтобы отправлять ответы только запросившему
-  // if (msg.OTA && msg.chatID == OLEG_ID) bot.update();  // разрешить обновление прошивки для Олега
-
+  
+  if (msg.OTA && msg.chatID == OLEG_ID) {    // разрешить обновление прошивки для Олега
+    bot.tickManual();                        // Чтобы отметить сообщение прочитанным
+    bot.update();                            // telegram update 
+  }
+  
   if (msg.text == "/state_garage"|| msg.text == "Состояние гаража") {
     String buf;
     if (gateState) buf = F("Ворота открыты\n");
