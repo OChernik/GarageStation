@@ -405,14 +405,18 @@ void loop() {
   else digitalWrite(relayVent, LOW);                           // выключаем вентилятор
 
   // если машина в гараже в автоматическом режиме включаем вентилятор в зависимости от разницы влажности
-  if (ventAuto && carStatus && (humidityGarage - humidityCalc >= myData.deltaHumidity + myData.hysteresis)) {
+  // при условии большого промежутка времени от момента нагрева датчика
+  if (ventAuto && carStatus && ((millis() - heat4xStart) >= (heat4xPeriod - 30000)) \
+    && (humidityGarage - humidityCalc >= myData.deltaHumidity + myData.hysteresis)) {
     digitalWrite(relayVent, HIGH); // включаем вентилятор
     ventState = 1;                 // устанавливаем флаг вентилятора
     hub.sendUpdate("ventLed");     // обновляем состояние вентилятора на ПУ
   } 
 
   // в автоматическом режиме выключаем вентилятор в зависимости от разницы влажности
-  if (ventAuto && (humidityGarage - humidityCalc < myData.deltaHumidity - myData.hysteresis)) {
+  // при условии большого промежутка времени от момента нагрева датчика
+  if (ventAuto && ((millis() - heat4xStart) >= (heat4xPeriod - 30000)) \ 
+    && (humidityGarage - humidityCalc < myData.deltaHumidity - myData.hysteresis)) {
     digitalWrite(relayVent, LOW);  // выключаем вентилятор
     ventState = 0;                 // устанавливаем флаг вентилятора
     hub.sendUpdate("ventLed");     // обновляем состояние вентилятора на ПУ
