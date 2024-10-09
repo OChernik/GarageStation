@@ -4,7 +4,7 @@ void newMsg(FB_msg& msg) {
   String msgID = msg.chatID;  // сохраняем chatID запроса, чтобы отправлять ответы только запросившему
   
   if (msg.OTA && msg.chatID == OLEG_ID) {    // разрешить обновление прошивки для Олега
-    bot.tickManual();                        // Чтобы отметить сообщение прочитанным
+    bot.tickManual();                        // отметить сообщение прочитанным и избежать бесконечного обновления
     bot.update();                            // telegram update 
   }
   
