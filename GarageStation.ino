@@ -200,13 +200,13 @@ void build(gh::Builder& b) {      // билдер GyverHub.
     b.endRow();
   }
 
-//  // горизонтальный контейнер с полями для тестовых переменных
-//   if (b.beginRow()) {
-//     uint32_t temp = millis() - carLeaveTmr;
-//     b.Label_(F("Test1"), carLeaveTmr).label(F("carLeaveTmr")).color(gh::Colors::Red);
-//     b.Label_(F("Test2"), temp).label(F("Difference")).color(gh::Colors::Aqua);
-//     b.endRow();
-//   }
+ // горизонтальный контейнер с полями для тестовых переменных
+ // if (b.beginRow()) {
+ //   bool temp = digitalRead(relayVent);
+ //   b.Label_(F("Test1"), ventState).label(F("ventState")).color(gh::Colors::Red);
+ //   b.Label_(F("Test2"), temp).label(F("relayVent")).color(gh::Colors::Aqua);
+ //   b.endRow();
+ // }
 
   b.show(b.menu() == 1); // если выбран пункт меню 1: Настройки гаража  
   // добавляем спиннеры с поправкой влажности
