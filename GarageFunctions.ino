@@ -47,9 +47,9 @@ void newMsg(FB_msg& msg) {
 
   if (msg.text == "/light_switch" || msg.text == "Свет ON/Off"){
     String buf;
-    manualLightState = !manualLightState;
-    if (manualLightState) {
-      lightTmr = millis();            // отметили время включения
+    lightButtonPressed = 1;         // отметили факт нажатия кнопки включения/выключения прожектора    
+    if (!manualLightState) {        // если прожектор был выключен
+      lightTmr = millis();          // отметили время включения
       buf = "Прожектор включен";
     } else {
       (buf = "Прожектор отключен");
