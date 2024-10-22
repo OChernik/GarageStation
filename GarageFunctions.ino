@@ -2,64 +2,68 @@
 void newMsg(FB_msg& msg) {
 
   String msgID = msg.chatID;  // сохраняем chatID запроса, чтобы отправлять ответы только запросившему
-  
-  if (msg.OTA && msg.chatID == OLEG_ID) {    // разрешить обновление прошивки для Олега
-    bot.tickManual();                        // отметить сообщение прочитанным и избежать бесконечного обновления
-    bot.update();                            // telegram update 
-  }
-  
-  if (msg.text == "/state_garage"|| msg.text == "Состояние гаража") {
+
+  // if (msg.OTA && msg.chatID == OLEG_ID) {    // разрешить обновление прошивки для Олега
+  //   bot.tickManual();                        // отметить сообщение прочитанным и избежать бесконечного обновления
+  //   bot.update();                            // telegram update 
+  // }  
+
+  if (msg.text == "/state_garage"|| msg.text == "Обзор") {
     String buf;
-    if (gateState) buf = F("Ворота открыты\n");
-    else buf = "Ворота закрыты\n";
-    if (ventState) buf += F("Вент. включен\n");
-    else buf += F("Вент. выключен\n");
-    if (ventAuto) buf += F("Авто режим\n");
-    else buf += F("Ручной режим\n");
-    if (carStatus) buf += F("Машина в гараже\n");
-    else buf += F("Машины нет\n");
+    (gateState) ? (buf = F("Ворота открыты\n")) : (buf = "Ворота закрыты\n");
+    (ventState) ? (buf += F("Вент. включен\n")) : (buf += F("Вент. выключен\n"));
+    (autoLightState || manualLightState) ? (buf += F("Прож. включен\n")) : (buf += F("Прож. отключен\n"));
+    (ventAuto) ? (buf += F("Авто режим\n")) : (buf += F("Ручной режим\n"));
+    (carStatus) ? (buf += F("Машина в гараже\n")) : (buf += F("Машины нет\n"));
+    (isDark) ? (buf += F("На улице темно\n")) : (buf += F("На улице светло\n"));
     bot.sendMessage(buf, msgID);  // отправили сообщение
   }
 
-  if (msg.text == "/switch_gate"|| msg.text == "Ворота ON/OFF"){
+  if (msg.text == "/switch_gate" || msg.text == "Ворота ON/OFF"){
     String buf;
-    if (gateState) buf = "Ворота закрываются";
-    else buf = "Ворота открываются";
+    (gateState) ? (buf = "Ворота закрываются") : (buf = "Ворота открываются");
     switchGate();           // отправили команду на переключение ворот
     bot.sendMessage(buf, msgID);  // отправили сообщение
   }
 
-  if (msg.text == "/weather_out"|| msg.text == "Улица"){
+  if (msg.text == "/weather_out" || msg.text == "Улица"){
     bot.sendMessage("Температура " + String(temperatureOut) + " Влажность " + String(humidityOut), msgID);  // отправили сообщение
   }
 
-  if (msg.text == "/weather_in"|| msg.text == "Гараж"){
+  if (msg.text == "/weather_in" || msg.text == "Гараж"){
     bot.sendMessage("Температура " + String(temperatureGarage) + " Влажность " + String(humidityGarage), msgID);  // отправили сообщение
   }
 
-  if (msg.text == "/weather_box"|| msg.text == "Корпус"){
+  if (msg.text == "/weather_box" || msg.text == "Корпус"){
     bot.sendMessage("Температура " + String(temperatureBox) + " Давление " + String(pressure), msgID);  // отправили сообщение
   }
 
-  if ((msg.text == "/vent_on" || msg.text == "Вент. ON") && !ventAuto){
-    ventState = 1;                          // включили вентилятор
-    bot.sendMessage("Вентилятор включен", msgID);  // отправили сообщение
+  if (msg.text == "/vent_switch" || msg.text == "Вент. ON/OFF"){
+    String buf;
+    ventState = !ventState;
+    (ventState) ? (buf = "Вентилятор включен") : (buf = "Вентилятор отключен");   
+    bot.sendMessage(buf, msgID);  // отправили сообщение
   }
 
-  if ((msg.text == "/vent_off" || msg.text == "Вент. OFF") && !ventAuto){
-    ventState = 0;                            // отключили вентилятор
-    bot.sendMessage("Вентилятор остановлен", msgID); // отправили сообщение
+  if (msg.text == "/light_switch" || msg.text == "Свет ON/Off"){
+    String buf;
+    manualLightState = !manualLightState;
+    if (manualLightState) {
+      lightTmr = millis();            // отметили время включения
+      buf = "Прожектор включен";
+    } else {
+      (buf = "Прожектор отключен");
+    }
+    bot.sendMessage(buf, msgID);  // отправили сообщение
   }
 
-  if (msg.text == "/auto_on" || msg.text == "Авто режим"){
-    ventAuto = 1;                             // включили автоматичекий режим
-    bot.sendMessage("Авто режим включен", msgID); // отправили сообщение
-  }
+  if (msg.text == "/auto_switch" || msg.text == "Авто режим ON/OFF"){
+    String buf;
+    ventAuto = !ventAuto;
+    (ventAuto) ? (buf = "Авто режим включен") : (buf = "Ручной режим включен");   
+    bot.sendMessage(buf, msgID);  // отправили сообщение
+  } 
 
-  if (msg.text == "/auto_off" || msg.text == "Ручной режим"){
-    ventAuto = 0;                                     //  отключили автоматичекий режим
-    bot.sendMessage("Авто режим отключен", msgID); // отправили сообщение
-  }  
 }  // end void newMsg
 
 // Функция устанавливает WiFi соединения
@@ -111,8 +115,7 @@ void showScreen() {
 float filterValue(float newValue, float filtValue, float delta) {
   float k;    // коэффициент фильтрации. от 0 до 1. Чем меньше, тем плавнее фильтр
   // резкость фильтра зависит от модуля разности значений
-  if (abs(newValue - filtValue) > delta) k = 0.3;
-  else k = 0.1;  
+  (abs(newValue - filtValue) > delta) ? (k = 0.3) : (k = 0.1);  
   filtValue += (newValue - filtValue) * k;
   return filtValue;  
 }
@@ -188,7 +191,7 @@ void switchGate() {
   idleTime = 0;                  // сброс времени покоя
 }  // end switchGate
 
-// функция считывает все датчики и выставляет флаги и таймер выезда машины carLeaveTmr
+// функция считывает датчики температуры, влажности и давления 
 void sensorsRead() {
   sensorOut.measureHighPrecision(tempTemperature, tempHumidity); // SensirionI2cSht4x.h
   if ((millis() - heat4xStart) < 30000) {                        // сразу после нагрева выводим данные как есть
@@ -220,17 +223,8 @@ void sensorsRead() {
 
 // функция считывает геркон, датчик дистанции, ПИР датчики и выставляет флаги и таймер выезда машины carLeaveTmr
 void gateRead() {
-  distance = sonar.ping_cm();  // определили расстояние до машины
-  bool newCarStatus;
-  (distance > 100) ? (newCarStatus = 0) : (newCarStatus = 1);  // определили статус машины - в гараже или нет
-  // если машина выехала, установили таймер  выезда машины из гаража
-  if (newCarStatus < carStatus) carLeaveTmr = millis(); 
-  // если машина приехала, обнулили таймер  выезда машины из гаража
-  if (newCarStatus > carStatus) carLeaveTmr = 0; 
 
-  carStatus = newCarStatus;                                    // установили статус машины
-
-  bool newGateState = digitalRead(gercon);  // считали состояние ворот
+  bool newGateState = digitalRead(gercon);  // считали состояние ворот  
   if (newGateState > gateState) {           // если ворота открылись, установили флаги
     gateOpened = 1;                         // при открытии ворот меняется содержимое ПУ
     gateClosed = 0;
@@ -240,21 +234,23 @@ void gateRead() {
     gateClosed = 1;                // при закрытии ворот меняется содержимое ПУ
     carLeaveTmr = 0;               // таймер нужно сбросить на 0 чтобы случайно не закрылись ворота
   }
-  // if (newGateState = gateState) {  // если состояние ворот не поменялось, установили флаги
-  //   gateOpened = 0;
-  //   gateClosed = 0;
-  // }
+  
   gateState = newGateState;  // установили флаг состояния ворот
 
-  if (digitalRead(pir1)) pir1State = 1;
-  else pir1State = 0;  // если появился сигнал на входе pir1
-  if (digitalRead(pir2)) pir2State = 1;
-  else pir2State = 0;  // если появился сигнал на входе pir2
-  if (digitalRead(pir3)) pir3State = 1;
-  else pir3State = 0;  // если появился сигнал на входе pir3  
-  // если все датчики в состоянии покоя
-  if (!pir1State && !pir2State && !pir3State) idleState = 1;
-  else idleState = 0;
+  if (gateState) distance = sonar.ping_cm();  // если ворота открыты, определили расстояние до машины
+  bool newCarStatus;
+  (distance > 100) ? (newCarStatus = 0) : (newCarStatus = 1);  // определили статус машины - в гараже или нет
+  // если машина выехала, установили таймер  выезда машины из гаража
+  if (newCarStatus < carStatus) carLeaveTmr = millis(); 
+  // если машина приехала, обнулили таймер  выезда машины из гаража
+  if (newCarStatus > carStatus) carLeaveTmr = 0; 
+
+  carStatus = newCarStatus;                                    // установили статус машины
+
+  (digitalRead(pir1)) ? (pir1State = 1) : (pir1State = 0); // если появился сигнал на входе pir1
+  (digitalRead(pir2)) ? (pir2State = 1) : (pir2State = 0); // если появился сигнал на входе pir2
+  (digitalRead(pir3)) ? (pir3State = 1) : (pir3State = 0); // если появился сигнал на входе pir3
+  (!pir1State && !pir2State && !pir3State) ? (idleState = 1) : (idleState = 0); // если все датчики в состоянии покоя
 }  // end void gateRead()
 
 // функция вычисляет давление насыщенного пара воды при заданной температуре (для апроксимации внесены табличные данные от -20С до 40С )
@@ -275,3 +271,27 @@ float humConversion(float h1, float t1, float t2) {
   float h2 = h1 * (p1 / p2);    // расчитали приведенную влажность
   return h2;
 }
+
+// callBack функция вызывается каждый раз при нахождении нового Bluetooth устройства 
+// void btAdvertisedDeviceFound(BTAdvertisedDevice* pDevice) {
+//   Serial.printf("Found a device asynchronously: %s\n", pDevice->toString().c_str());
+//   findMyCar = pDevice->toString().c_str();
+//   if (findMyCar.indexOf(myCar) >0) myCarFound = 1;
+//   else myCarFound = 0;
+//   Serial.print("myCarFound = ");
+//   Serial.println(myCarFound);
+// }
+
+// // функция начала асинхронного сканирования Bluetooth
+// void startScanMyCar(){
+//   Serial.print("Starting discoverAsync...");
+//   SerialBT.discoverAsync(btAdvertisedDeviceFound);
+//   Serial.println("Findings will be reported in \"btAdvertisedDeviceFound\"");
+// }
+
+// // функция конца асинхронного сканирования Bluetooth
+// void stopScanMyCar(){ 
+//   Serial.print("Stopping discoverAsync... ");
+//   SerialBT.discoverAsyncStop();
+//   Serial.println("stopped");
+// }
