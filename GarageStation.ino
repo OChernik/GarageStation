@@ -25,36 +25,35 @@ const char* otaPass = "*********";        // OTA Password
 #define CHAT_ID "*****"                   // Telegram chat ID
 #define OLEG_ID "*****"                   // Telegram chat ID
 
-#define pir1 26                           // sensor PIR1 to GPIO26
-#define pir2 27                           // sensor PIR2 to GPIO27
-#define pir3 35                           // sensor PIR2 to GPIO35
-#define echoPin 34                        // HC-SR04 ECHO to GPIO34
-#define triggerPin 32                     // HC-SR04 TRIGGER to GPIO35
-#define MaxDistance 300                   // HC-SR04 максимально возможное расстояние
-#define relayVent 16                      // relay to GPIO16
-#define relayGate 18                      // relay to GPIO18
-#define gercon 25                         // геркон to GPIO25
-#define idleTimePeriod 5 * 60 * 1000L     // время отсутствия движения, через которое закрываются ворота
-#define sensorReadPeriod 2 * 1000         // период между опросом датчиков температуры, влажности, давления в мс.
-#define gateReadPeriod 300                // период между опросом геркона, датчиков дистании и ПИР в мс.
-#define openMonPeriod 5 * 60 * 1000L      // период между отправкой данных на сервер ОМ в мс.
-#define narodMonPeriod 6 * 60 * 1000L     // период между отправкой данных на сервер NM в мс.
-#define checkWifiPeriod 30 * 1000L        // период проверки состояния WiFi соединения в мс.
-#define oledInvertPeriod 60 * 1000L       // период инверсии дисплея
-#define heatPeriod 24 * 60 * 60 * 1000L   // период безусловного включения нагрева датчиков
-#define heat3xTime 5 * 60 * 1000L         // время, на которое включается нагрев датчика SHT3x
-#define heat4xPeriod 120 * 1000L          // период включения нагрева SHT4x
-#define heat3xBorder 65                   // значение влажности, выше которого включается нагрев датчика SHT3x
-#define heat4xBorder 75                   // значение влажности, выше которого включается нагрев датчика SHT4x
-#define WDT_TIMEOUT 30                    // 30 секунд отсутствия отклика для перезагрузки через WDT
-#define ATOMIC_FS_UPDATE                  // чтобы можно было отсылать боту  .bin.gz архив прошивки
-
-
-#define dayLightShift 20 * 60             // разница между восходом/заходом солнца и наступлением темноты, секунд
-#define latitude 52.62                    // широта места для расчета времени восхода/захода солнца
-#define longitude 39.63                   // долгота места для расчета времени восхода/захода солнца
-
-
+#define pir1 26                          // sensor PIR1 to GPIO26
+#define pir2 27                          // sensor PIR2 to GPIO27
+#define pir3 35                          // sensor PIR2 to GPIO35
+#define echoPin 34                       // HC-SR04 ECHO to GPIO34
+#define triggerPin 32                    // HC-SR04 TRIGGER to GPIO35
+#define MaxDistance 300                  // HC-SR04 максимально возможное расстояние
+#define relayVent 16                     // relay to GPIO16
+#define relayLight 17                    // relay to GPIO17
+#define relayGate 18                     // relay to GPIO18
+#define gercon 25                        // геркон to GPIO25
+#define idleTimePeriod 5 * 60 * 1000L    // время отсутствия движения, через которое закрываются ворота
+#define sensorReadPeriod 2 * 1000        // период между опросом датчиков температуры, влажности, давления в мс.
+#define gateReadPeriod 300               // период между опросом геркона, датчиков дистании и ПИР в мс.
+#define openMonPeriod 5 * 60 * 1000L     // период между отправкой данных на сервер ОМ в мс.
+#define narodMonPeriod 6 * 60 * 1000L    // период между отправкой данных на сервер NM в мс.
+#define checkWifiPeriod 30 * 1000L       // период проверки состояния WiFi соединения в мс.
+#define oledInvertPeriod 60 * 1000L      // период инверсии дисплея
+#define heatPeriod 24 * 60 * 60 * 1000L  // период безусловного включения нагрева датчиков
+#define heat3xTime 5 * 60 * 1000L        // время, на которое включается нагрев датчика SHT3x
+#define heat4xPeriod 3 * 60 * 1000L      // период включения нагрева SHT4x
+#define heat3xBorder 65                  // значение влажности, выше которого включается нагрев датчика SHT3x
+#define heat4xBorder 75                  // значение влажности, выше которого включается нагрев датчика SHT4x
+#define WDT_TIMEOUT 30                   // 30 секунд отсутствия отклика для перезагрузки через WDT
+#define ATOMIC_FS_UPDATE                 // чтобы можно было отсылать боту  .bin.gz архив прошивки
+#define dayLightShift 20 * 60            // разница между восходом/заходом солнца и наступлением темноты, секунд
+#define latitude 52.6                    // широта места для расчета времени восхода/захода солнца
+#define longitude 39.6                   // долгота места для расчета времени восхода/захода солнца
+#define scanPeriod 30000                 // период между сканированиями Bluetooth
+#define stopPeriod 10000                 // длительность сканирования Bluetooth
 
 // Библиотеки_______________________________________________________________
 #include <Arduino.h>
@@ -65,121 +64,112 @@ const char* otaPass = "*********";        // OTA Password
 #include <SensirionI2cSht3x.h>  // библиотека датчиков температуры и влажности SHT3х
 #include <SensirionI2cSht4x.h>  // библиотека датчиков температуры и влажности SHT4х
 #include <GyverBME280.h>        // библиотека датчика температуры и давления BMP280 или BME280
-#include <ArduinoOTA.h>  // бибилотека ОТА обновления по WiFi
-#include <ESPmDNS.h>     // нужно для работы бибилиотеки ArduinoOTA.h
-#include <WiFiUdp.h>     // нужно для работы бибилиотеки ArduinoOTA.h
-#include <GyverOLED.h>   //библиотека дисплея
-#include <MyTimer.h>   // тестовая библиотека простейшего таймера моего изготовления
-#include <GyverHub.h>  // GyverHub
-#include <NewPing.h>   // подключаем библиотеку NewPing для работы датчика расстояния
-#include <FileData.h>  // для сохранения переменных в памяти ESP32 вместо EEPROM
-#include <LittleFS.h>  // для сохранения переменных в памяти ESP32 вместо EEPROM
-#include <FastBot.h>   // библиотека управления телеграм-ботом
-
-
-
-
-#include <GyverNTP.h>     // для получения точного времени с серверов и удобных действий со временем 
-#include <SunPosition.h>  // для расчета времени восхода/захода солнца. Требуется чтобы вычислять время наступления темноты
-
-
-
-
-
+#include <ArduinoOTA.h>         // бибилотека ОТА обновления по WiFi
+#include <ESPmDNS.h>            // нужно для работы бибилиотеки ArduinoOTA.h
+#include <WiFiUdp.h>            // нужно для работы бибилиотеки ArduinoOTA.h
+#include <GyverOLED.h>          //библиотека дисплея
+#include <MyTimer.h>            // тестовая библиотека простейшего таймера моего изготовления
+#include <GyverHub.h>           // GyverHub
+#include <NewPing.h>            // подключаем библиотеку NewPing для работы датчика расстояния
+#include <FileData.h>           // для сохранения переменных в памяти ESP32 вместо EEPROM
+#include <LittleFS.h>           // для сохранения переменных в памяти ESP32 вместо EEPROM
+#include <FastBot.h>            // библиотека управления телеграм-ботом
+#include <GyverNTP.h>           // для получения точного времени с серверов и удобных действий со временем 
+#include <sunset.h>             // для расчета времени восхода/захода солнца. Требуется чтобы вычислять время наступления темноты
+// #include <BluetoothSerial.h>    // библиотека Bluetooth classic
 
 struct Data {                  // структура для хранения настроек в памяти ESP32
-  float humInCorrection = 0;   // поправка влажности датчика внутри гаража 
-  float humOutCorrection = 0;  // поправка влажности датчика на улице 
-  uint8_t deltaHumidity = 8;   // порог автовключения вентилятора 
+  float humInCorrection = 0;   // поправка влажности датчика внутри гаража
+  float humOutCorrection = 0;  // поправка влажности датчика на улице
+  uint8_t deltaHumidity = 8;   // порог автовключения вентилятора
   uint8_t hysteresis = 1;      // разница влажности между включением и выключением вентилятора. Чтобы реле 220V не щелкало слишком часто
- // если время между открытием ворот и выездом машины меньше gateOpenedPeriod, 
- // ворота будут автоматически закрываться через carLeavePeriod после выезда из гаража  
+                               // если время между открытием ворот и выездом машины меньше gateOpenedPeriod,
+                               // ворота будут автоматически закрываться через carLeavePeriod после выезда из гаража
   uint32_t gateOpenedPeriod = 600000;
-  uint32_t carLeavePeriod = 20000;      // через какое время после выезда машины из гаража закрываются ворота
+  uint32_t carLeavePeriod = 20000;  // через какое время после выезда машины из гаража закрываются ворота
+  uint32_t lightPeriod = 120000;    // время, на которое включается прожектор
 };
-Data myData;                   // создаем переменную myData со структурой Data  
+Data myData;  // создаем переменную myData со структурой Data
 // создание объекта data библиотеки FileData для сохранения настроек на флеше ESP32
-FileData data(&LittleFS, "/myData.dat", 't', &myData, sizeof(myData)); 
+FileData data(&LittleFS, "/myData.dat", 't', &myData, sizeof(myData));
 
 // Объекты библиотек____________________________________________________________________________________
-SensirionI2cSht3x sensorIn;                      // создание объекта датчика sensorIn в гараже 
-SensirionI2cSht4x sensorOut;                     // создание объекта датчика sensorOut на улице 
-GyverBME280 bme;                                 // Создание обьекта bme
-GyverOLED<SSH1106_128x64> oled;                  // создание объекта экрана SSH1106 1,3''
-HTTPClient http;                                 // создаем объект http библиотеки HTTPClient
-WiFiClient client;                               // создаем объект client библиотеки WiFiClient
-MyTimer oledTmr(oledInvertPeriod);               // создаем объект oledTmr таймера MyTimer с периодом oledInvertPeriod
-MyTimer heat4xTmr(heat4xPeriod);                 // создаем объект heat4xTmr таймера MyTimer с периодом heat4xPeriod
-MyTimer checkWifiTmr(checkWifiPeriod);           // создаем объект checkWifiTmr таймера MyTimer с периодом checkWifiPeriod
-MyTimer sensorReadTmr(sensorReadPeriod);         // создаем объект sensorReadTmr таймера MyTimer с периодом sensorReadPeriod
-MyTimer gateReadTmr(gateReadPeriod);             // создаем объект gateReadTmr таймера MyTimer с периодом gateReadPeriod
-GyverHub hub;                                    // создаем объект GyverHub
-FastBot bot(BOT_TOKEN);                          // создаем объект FastBot
-NewPing sonar(triggerPin, echoPin, MaxDistance); // создаем объект NewPing
-
-
-
-SunPosition sunShine;                            // создаем объект sunShine
-
-
+SensirionI2cSht3x sensorIn;                       // создание объекта датчика sensorIn в гараже
+SensirionI2cSht4x sensorOut;                      // создание объекта датчика sensorOut на улице
+GyverBME280 bme;                                  // Создание обьекта bme
+GyverOLED<SSH1106_128x64> oled;                   // создание объекта экрана SSH1106 1,3''
+HTTPClient http;                                  // создаем объект http библиотеки HTTPClient
+WiFiClient client;                                // создаем объект client библиотеки WiFiClient
+MyTimer oledTmr(oledInvertPeriod);                // создаем объект oledTmr таймера MyTimer с периодом oledInvertPeriod
+MyTimer heat4xTmr(heat4xPeriod);                  // создаем объект heat4xTmr таймера MyTimer с периодом heat4xPeriod
+MyTimer checkWifiTmr(checkWifiPeriod);            // создаем объект checkWifiTmr таймера MyTimer с периодом checkWifiPeriod
+MyTimer sensorReadTmr(sensorReadPeriod);          // создаем объект sensorReadTmr таймера MyTimer с периодом sensorReadPeriod
+MyTimer gateReadTmr(gateReadPeriod);              // создаем объект gateReadTmr таймера MyTimer с периодом gateReadPeriod
+GyverHub hub;                                     // создаем объект GyverHub
+FastBot bot(BOT_TOKEN);                           // создаем объект FastBot
+NewPing sonar(triggerPin, echoPin, MaxDistance);  // создаем объект NewPing
+SunSet lipetsk;                                   // создаем объект SunSet
+// BluetoothSerial SerialBT;                         // создаем объект SerialBT
 
 // Переменные___________________________________________________________________________________
-float temperatureGarage;          // значение температуры в гараже
-float temperatureOut;             // значение температуры на улице
-float temperatureBox;             // значение температуры в коробке
-float humidityGarage;             // значение влажности в гараже
-float humidityOut;                // значение влажности на улице
-float humidityCalc;               // расчетное значение уличной влажности, приведенное к температуре гаража
-float pressure;                   // значение давления
-float tempTemperature;            // первичное значение температуры с датчика до проверки на выброс
-float tempHumidity;               // первичное значение влажности с датчика до проверки на выброс
-int distance;                     // значение расстояния до машины
-int8_t rssi;                      // переменная измеренного значения rssi, dB
-
-
-
+float temperatureGarage;     // значение температуры в гараже
+float temperatureOut;        // значение температуры на улице
+float temperatureBox;        // значение температуры в коробке
+float humidityGarage;        // значение влажности в гараже
+float humidityOut;           // значение влажности на улице
+float humidityCalc;          // расчетное значение уличной влажности, приведенное к температуре гаража
+float pressure;              // значение давления
+float tempTemperature;       // первичное значение температуры с датчика до проверки на выброс
+float tempHumidity;          // первичное значение влажности с датчика до проверки на выброс
+int distance;                // значение расстояния до машины
+int8_t rssi;                 // переменная измеренного значения rssi, dB
 uint16_t mornDawn;                // время начала утреннего рассвета, секунд
 uint16_t nightFall;               // время начала сумерек, секунд
-bool isDark;                      // темно ли на улице. 1 - темно, 0 - светло
+uint32_t heat3xTmr = 0;      // переменная таймера нагрева датчика SHT31
+uint32_t openMonTmr = 0;     // переменная таймера отправки сообщений на сервер open-monitoring.online
+uint32_t narodMonTmr = 0;    // переменная таймера отсылки данных на сервер NarodMon
+uint32_t heat3xStart = 0;    // переменная времени начала нагрева датчика SHT31
+uint32_t heat4xStart = 0;    // переменная времени начала нагрева датчика SHT41
+uint32_t idleTime = 0;       // текущее время покоя
+uint32_t idleTimeTmr = 0;    // переменная таймера состояния покоя
+uint32_t gateOpenedTmr = 0;  // переменная таймера открытия ворот
+uint32_t carLeaveTmr = 0;    // переменная таймера выезда машины
+uint32_t lightTmr = 0;       // переменная таймера включения прожектора
+bool pir1State = 0;          // состояние датчика pir1. 0 - покой, 1 - движение
+bool pir2State = 0;          // состояние датчика pir2. 0 - покой, 1 - движение
+bool pir3State = 0;          // состояние датчика pir3. 0 - покой, 1 - движение
+bool heat3xFlag = 0;         // флаг нагрева датчика SHT31
+bool heat4xFlag = 0;         // флаг нагрева датчика SHT41
+bool oledFlag = 0;           // флаг состояния инверсии дисплея
+bool gateState;              // состояние ворот. 0 - закрыты (геркон разомкнут), 1 - открыты
+bool gateOpened = 0;         // флаг факта открытия ворот. Для обновления ПУ
+bool gateClosed = 0;         // флаг факта закрытия ворот. Для обновления ПУ
+bool ventState = 0;          // состояние вентилятора. 0 - выключен, 1 - включен
+bool autoLightState = 0;     // состояние прожектора. 0 - выключен, 1 - включен
+bool manualLightState = 0;   // состояние прожектора. 0 - выключен, 1 - включен
+bool ventAuto = 1;           // управление вентилятором. 0 - ручное, 1 - автоматическое
+bool carStatus = 0;          // 1 - машина в гараже, 0 - машина отсутствует
+bool hubChanged = 0;         // 1 - требуется изменить конфигурацию виджетов ПУ
+bool idleState = 0;          // состояние общего покоя. 0 - покой, 1 - движение
+bool isDark;                 // темно ли на улице. 1 - темно, 0 - светло
+int idleSec = 0;             // текущее время покоя в целых секундах
 
+String findMyCar;
+String myCar = "CHANGAN, Address: 74:04:f0:05:b4:79";
+uint32_t scanPeriodTmr = 0;  // переменная времени начала сканирования Bluetooth
+bool myCarFound; 
+bool scanStart;
 
-
-
-uint32_t heat3xTmr = 0;           // переменная таймера нагрева датчика SHT31
-uint32_t openMonTmr = 0;          // переменная таймера отправки сообщений на сервер open-monitoring.online
-uint32_t narodMonTmr = 0;         // переменная таймера отсылки данных на сервер NarodMon
-uint32_t heat3xStart = 0;         // переменная времени начала нагрева датчика SHT31
-uint32_t heat4xStart = 0;         // переменная времени начала нагрева датчика SHT41
-uint32_t gateOpenedTmr = 0;       // переменная таймера открытия ворот
-uint32_t carLeaveTmr = 0;         // переменная таймера выезда машины
-bool pir1State = 0;               // состояние датчика pir1. 0 - покой, 1 - движение
-bool pir2State = 0;               // состояние датчика pir2. 0 - покой, 1 - движение
-bool pir3State = 0;               // состояние датчика pir3. 0 - покой, 1 - движение
-bool heat3xFlag = 0;              // флаг нагрева датчика SHT31
-bool heat4xFlag = 0;              // флаг нагрева датчика SHT41
-bool oledFlag = 0;                // флаг состояния инверсии дисплея
-bool gateState;                   // состояние ворот. 0 - закрыты (геркон разомкнут), 1 - открыты
-bool gateOpened = 0;              // флаг факта открытия ворот. Для обновления ПУ
-bool gateClosed = 0;              // флаг факта закрытия ворот. Для обновления ПУ
-bool ventState = 0;               // состояние вентилятора. 0 - выключен, 1 - включен
-bool ventAuto = 1;                // управление вентилятором. 0 - ручное, 1 - автоматическое
-bool carStatus = 0;               // 1 - машина в гараже, 0 - машина отсутствует
-bool hubChanged = 0;              // 1 - требуется изменить конфигурацию виджетов ПУ
-bool idleState = 0;               // состояние общего покоя. 0 - покой, 1 - движение
-uint32_t idleTimeTmr = 0;         // переменная таймера состояния покоя
-uint32_t idleTime = 0;            // текущее время покоя
-int idleSec = 0;                  // текущее время покоя в целых секундах
-
-void build(gh::Builder& b) {      // билдер GyverHub.
+void build(gh::Builder& b) {  // билдер GyverHub.
   // добавляем в меню два пользовательских пункта 0.Контроль гаража и 1.Настройки гаража.
-  // пункт 1.Настройки гаража видит только пользователь с указанным Client ID  
+  // пункт 1.Настройки гаража видит только пользователь с указанным Client ID
   if (b.build.client.id == hubClientID) {
     b.Menu("Контроль гаража;Настройки гаража");
   } else {
     b.Menu("Контроль гаража");
   }
-  
-  b.show(b.menu() == 0); // если выбран пункт меню 0: Контроль гаража
+
+  b.show(b.menu() == 0);                                                  // если выбран пункт меню 0: Контроль гаража
   b.Title(F("Контроль гаража")).fontSize(32).color(gh::Colors::Default);  // добавим заголовок
   // горизонтальный контейнер с температурой и влажностью на улице
   if (b.beginRow()) {
@@ -194,12 +184,12 @@ void build(gh::Builder& b) {      // билдер GyverHub.
     b.endRow();
   }
   // горизонтальный контейнер с приведенной влажностью и давлением
-  if (b.beginRow()) {    
+  if (b.beginRow()) {
     b.Label_(F("Pressure"), pressure).label(F("Атмосферное давление")).color(gh::Colors::Orange);
     b.Label_(F("HumCalc"), humidityCalc).label(F("Приведенная влажность")).color(gh::Colors::Aqua);
     b.endRow();
   }
-  // горизонтальный контейнер с работой вентилятора
+  // горизонтальный контейнер с работой вентилятора и прожектора
   if (b.beginRow()) {
     if (b.Switch(&ventAuto).label(F("АвтоРежим")).click()) (hubChanged = 1);
     if (ventAuto) {  // если вентилятор в режиме автоматического управления
@@ -207,14 +197,15 @@ void build(gh::Builder& b) {      // билдер GyverHub.
     } else {
       if (b.Switch(&ventState).label(F("Вентилятор ON/OFF")).click()) (hubChanged = 1);
     }
+    b.LED_(F("lightLed"), &autoLightState).label(F("Прожектор ON/OFF"));
     b.endRow();
   }
   // статус ворот
   if (gateState) {  // если ворота открыты
     if (b.beginRow()) {
       if (b.Switch_(F("gateSwitch"), &gateState).size(2).label(F("Закрыть ворота?")).click()) {
-        switchGate();       // закрываем ворота
-        gateClosed = 1;         
+        switchGate();  // закрываем ворота
+        gateClosed = 1;
       }
       b.LED_(F("PIR1"), &pir1State).label(F("PIR1")).size(1);
       b.LED_(F("PIR2"), &pir2State).label(F("PIR2")).size(1);
@@ -234,33 +225,40 @@ void build(gh::Builder& b) {      // билдер GyverHub.
     b.endRow();
   }
 
- // горизонтальный контейнер с полями для тестовых переменных
- // if (b.beginRow()) {
- //   bool temp = digitalRead(relayVent);
- //   b.Label_(F("Test1"), ventState).label(F("ventState")).color(gh::Colors::Red);
- //   b.Label_(F("Test2"), temp).label(F("relayVent")).color(gh::Colors::Aqua);
- //   b.endRow();
- // }
+  // горизонтальный контейнер с полями для тестовых переменных
+  if (b.beginRow()) {
+    // bool temp = digitalRead(relayVent);
+    b.Label_(F("Test1"), lipetsk.calcSunrise()).label(F("Восход солнца")).color(gh::Colors::Red).fontSize(16);
+    b.Label_(F("Test2"), lipetsk.calcSunset()).label(F("Заход солнца")).color(gh::Colors::Aqua).fontSize(16);
+    b.Label_(F("Test3"), isDark).label(F("isDark")).color(gh::Colors::Aqua).fontSize(16);
+    b.endRow();
+  }
 
-  b.show(b.menu() == 1); // если выбран пункт меню 1: Настройки гаража  
+  b.show(b.menu() == 1);  // если выбран пункт меню 1: Настройки гаража
   // добавляем спиннеры с поправкой влажности
   if (b.beginRow()) {
     if (b.Spinner(&myData.humOutCorrection).range(-10, 10, 0.1).label(F("Поправка влажности на улице")).click()) data.update();
     if (b.Spinner(&myData.humInCorrection).range(-10, 10, 0.1).label(F("Поправка влажности в гараже")).click()) data.update();
     b.endRow();
-  }  
+  }
   // добавляем спиннеры с дельтой включения вентилятора и гистерезисом
   if (b.beginRow()) {
     if (b.Spinner(&myData.deltaHumidity).range(0, 15, 1).label(F("Дельта влажности")).click()) data.update();
     if (b.Spinner(&myData.hysteresis).range(0, 5, 1).label(F("Гистерезис")).click()) data.update();
     b.endRow();
-  } 
+  }
   // добавляем спиннеры с gateOpenedPeriod и carLeavePeriod
   if (b.beginRow()) {
     if (b.Spinner(&myData.gateOpenedPeriod).range(0, 1200000, 60000).label(F("gateOpenedPeriod")).click()) data.update();
     if (b.Spinner(&myData.carLeavePeriod).range(0, 60000, 5000).label(F("carLeavePeriod")).click()) data.update();
     b.endRow();
-  }  
+  }
+
+  // добавляем спиннер с lightPeriod
+  if (b.beginRow()) {
+    if (b.Spinner(&myData.lightPeriod).range(0, 1200000, 60000).label(F("Время включения прожектора")).click()) data.update();
+    b.endRow();
+  }
 }  // end void build()
 
 // Setup______________________________________________________________________________________________
@@ -269,39 +267,34 @@ void setup() {
   pinMode(pir2, INPUT_PULLDOWN);    // задаем вход датчика pir2 и подтягиваем его к земле
   pinMode(pir3, INPUT_PULLDOWN);    // задаем вход датчика pir3 и подтягиваем его к земле
   pinMode(relayVent, OUTPUT);       // пин реле вентилятора - выход
+  pinMode(relayLight, OUTPUT);      // пин реле прожектора - выход
   pinMode(relayGate, OUTPUT);       // пин реле ворот - выход
   pinMode(gercon, INPUT_PULLDOWN);  // подтягиваем вход геркона к земле
   pinMode(triggerPin, OUTPUT);      // назначаем trigPin, как выход
   pinMode(echoPin, INPUT);          // назначаем echoPin, как вход
-  if (digitalRead(gercon)) gateState = 1;
-  else gateState = 0;                    // задаем исходное состояние ворот
-  digitalWrite(relayGate, LOW);          // исходное низкое значение
-  digitalWrite(relayVent, LOW);          // исходное низкое значение
+
+  (digitalRead(gercon)) ? (gateState = 1) : (gateState = 0);  // задаем исходное состояние ворот
+
+  distance = sonar.ping_cm();                            // определили расстояние до машины
+  (distance > 100) ? (carStatus = 0) : (carStatus = 1);  // определили исходный статус машины - в гараже или нет
+
+  digitalWrite(relayGate, LOW);   // исходное низкое значение, реле нормальное
+  digitalWrite(relayVent, HIGH);  // исходное высокое значение, реле обращенное
+  digitalWrite(relayLight, HIGH); // исходное низкое значение, реле обращенное
 
   esp_task_wdt_init(WDT_TIMEOUT, true);  //enable panic so ESP32 restarts
   esp_task_wdt_add(NULL);                //add current thread to WDT watch
 
-  LittleFS.begin();                      // инициализация файловой системы на флеше для записи настроек
-  data.read();                           // считываем данные настроек из флеша
+  LittleFS.begin();  // инициализация файловой системы на флеше для записи настроек
+  data.read();       // считываем данные настроек из флеша
 
   Serial.begin(115200);
-  Wire.begin();                         // SensirionI2cSht3x.h and SensirionI2cSht4x.h
-
-
-
-
-  
-  NTP.begin(3);                         // запустить объект NTP и указать часовой пояс
-  
-
-
-  
-
-  
-  sensorIn.begin(Wire, SHT31_I2C_ADDR_45);  // SensirionI2cSht3x.h
-  sensorIn.disableHeater();                 // изначально выключаем нагрев датчика в гараже
-  sensorOut.begin(Wire, SHT41_I2C_ADDR_44); // SensirionI2cSht4x.h
-  bme.begin();                              // инициализируем датчик BMP280
+  Wire.begin();                              // SensirionI2cSht3x.h and SensirionI2cSht4x.h
+  sensorIn.begin(Wire, SHT31_I2C_ADDR_45);   // SensirionI2cSht3x.h
+  sensorIn.disableHeater();                  // изначально выключаем нагрев датчика в гараже
+  sensorOut.begin(Wire, SHT41_I2C_ADDR_44);  // SensirionI2cSht4x.h
+  bme.begin();                               // инициализируем датчик BMP280
+  // SerialBT.begin("ESP32test");               //Bluetooth device name
 
   oled.init();                   // инициализация дисплея
   oled.setContrast(10);          // яркость 0..255
@@ -312,6 +305,8 @@ void setup() {
 
 
   initWiFi();  // установили соединение WiFi
+
+  NTP.begin(3);                              // запустить объект NTP и указать часовой пояс
 
   // библиотека ArduinoOTA.h делает что-то нужное для работы ОТА
   ArduinoOTA
@@ -344,32 +339,32 @@ void setup() {
   ArduinoOTA.setPassword(otaPass);
   ArduinoOTA.begin();
 
+  // первоначальный расчет времени наступления рассвета, сумерек и факта темноты
+  lipetsk.setPosition(latitude, longitude, 3);
+  lipetsk.setCurrentDate(NTP.year(), NTP.month(), NTP.day());
+  mornDawn = lipetsk.calcSunrise() * 60 - dayLightShift;          // время наступления рассвета, секунд
+  nightFall = lipetsk.calcSunset() * 60 + dayLightShift;          // время наступления сумерек, секунд
+  (NTP.daySeconds() < mornDawn || NTP.daySeconds() > nightFall) ? (isDark = 1) : (isDark = 0);
+
   hub.mqtt.config("m6.wqtt.ru", 17108, mqttLogin, mqttPass);  // подключаем платный защищенный MQTT сервис
   // hub.mqtt.config(F("test.mosquitto.org"), 1883);          // подключаем бесплатный незащищенный MQTT сервис
-  hub.config(hubPrefix, F("Garage"), F("f494"));   // конфигурация GyverHub
+  hub.config(hubPrefix, F("Garage"), F("f494"));  // конфигурация GyverHub
   hub.onBuild(build);
   hub.begin();
 
-  bot.setChatID(CHAT_ID);                       // задаем  CHAT_ID бота
-  bot.setPeriod(5000);                          // период опроса в мс (по умолч. 3500)
-  bot.attach(newMsg);                           // подключаем функцию-обработчик сообщений
-  bot.showMenu("Состояние гаража \n Улица \t Гараж \t Корпус \n Вент. ON \t Вент. OFF \n Авто режим \t Ручной режим \n Ворота ON/OFF");   // показываем меню бота с сообщением
+  bot.setChatID(CHAT_ID);      // задаем  CHAT_ID бота
+  bot.setPeriod(5000);         // период опроса в мс (по умолч. 3500)
+  bot.attach(newMsg);          // подключаем функцию-обработчик сообщений
+  // показываем меню бота с сообщением
+  bot.showMenu("Обзор \t Улица \t Гараж \t Корпус \n Вент. ON/OFF \t Свет ON/Off \n Авто режим ON/OFF \t Ворота ON/OFF"); 
 
   // устанавливаем начальные измеряемые значения для корректной работы фильтра checkValue
   sensorIn.measureSingleShot(REPEATABILITY_HIGH, false, temperatureGarage, humidityGarage);  // SensirionI2cSht3x.h
   // sensorOut.measureSingleShot(REPEATABILITY_HIGH, false, temperatureOut, humidityOut);       // SensirionI2cSht3x.h
-  sensorOut.measureHighPrecision(temperatureOut, humidityOut);                               // SensirionI2cSht4x.h
+  sensorOut.measureHighPrecision(temperatureOut, humidityOut);  // SensirionI2cSht4x.h
   temperatureBox = bme.readTemperature();
   pressure = pressureToMmHg(bme.readPressure());
 
-
-  // первоначальный расчет времени наступления рассвета и сумерек
-  sunShine.compute(latitude, longitude, NTP.getUnix(), 3);     // расчет Солнца
-  mornDawn = sunShine.sunrise() * 60 - dayLightShift;          // время наступления рассвета, секунд
-  nightFall = sunShine.sunset() * 60 + dayLightShift;          // время наступления сумерек, секунд
-
-
-  
 }  // end void Setup()
 
 // Loop_______________________________________________________________________________________________
@@ -377,37 +372,41 @@ void loop() {
 
   esp_task_wdt_reset();  // сбрасываем Watch Dog Timer чтобы не прошла перезагрузка
   ArduinoOTA.handle();   // поддерживаем работу ОТА
- 
-  data.tick();           // сохранение настроек во Флеш памяти по таймауту
 
-  bot.tick();            // тикаем для работы телеграм бота
+  data.tick();  // сохранение настроек во Флеш памяти по таймауту
 
+  bot.tick();  // тикаем для работы телеграм бота
 
-  
-  // проверка наступления темноты, совмещенная с необходимым NTP.tick()
-  if (NTP.tick()) {
-    (NTP.daySeconds() < mornDawn || NTP.daySeconds() > nightFall) ? (isDark = 1) : (isDark = 0);
-  } 
+  NTP.tick();
+  (NTP.daySeconds() < mornDawn || NTP.daySeconds() > nightFall) ? (isDark = 1) : (isDark = 0);
   
   // делаем в течение дня несколько расчетов темного времени суток. На случай если не будет коннекта
   if (NTP.daySeconds() == 1000 || NTP.daySeconds() == 9000 || NTP.daySeconds() == 18000 || NTP.daySeconds() == 43000) {
-    sunShine.compute(latitude, longitude, NTP.getUnix(), 3);     // расчет Солнца
-    mornDawn = sunShine.sunrise() * 60 - dayLightShift;          // время наступления рассвета, секунд
-    nightFall = sunShine.sunset() * 60 + dayLightShift;          // время наступления сумерек, секунд
-  }  
+    mornDawn = lipetsk.calcSunrise() * 60 - dayLightShift;          // время наступления рассвета, секунд
+    nightFall = lipetsk.calcSunset() * 60 + dayLightShift;          // время наступления сумерек, секунд
+  } 
 
-  
+  // if (!scanStart && ((millis() - scanPeriodTmr) >= scanPeriod)) {  // начало сканирования Bluetooth
+  //   scanPeriodTmr = millis();
+  //   startScanMyCar();
+  //   scanStart = 1;
+  // }
 
-  
+  // if (scanStart && ((millis() - scanPeriodTmr) >= stopPeriod)) {   // конец сканирования Bluetooth
+  //   scanPeriodTmr = millis();
+  //   stopScanMyCar();
+  //   scanStart = 0;
+  // }
+
   if (sensorReadTmr.tick()) {  // если пришло время опроса датчиков погоды
     sensorsRead();             // функция считывает все датчики погоды
     showScreen();              // вывод показаний датчиков на экран
   }                            // end if
 
-  if (gateReadTmr.tick()) {    // если пришло время опроса датчиков
-    gateRead();                // функция считывает геркон, датчик дистанции и ПИР датчики и выставляет флаги
-    showScreen();              // вывод показаний датчиков на экран    
-  }                            // end if
+  if (gateReadTmr.tick()) {  // если пришло время опроса датчиков
+    gateRead();              // функция считывает геркон, датчик дистанции и ПИР датчики и выставляет флаги
+    showScreen();            // вывод показаний датчиков на экран
+  }                          // end if
 
   hub.tick();                      // тикаем для нормальной работы конструктора интерфейса
   static gh::Timer tmr(2000);      // период 2 секунды
@@ -418,41 +417,67 @@ void loop() {
     hub.sendUpdate("HumGarage");   // обновляем значение влажности в гараже
     hub.sendUpdate("HumCalc");     // обновляем значение приведенной влажности
     hub.sendUpdate("Pressure");    // обновляем значение давления
+    hub.sendUpdate("lightLed");    // обновляем статус прожектора
     hub.sendUpdate("Car");         // обновляем статус машины
-    // hub.sendUpdate("Test1");       // обновляем статус тестовой переменной 1
-    // hub.sendUpdate("Test2");       // обновляем статус тестовой переменной 2
+    hub.sendUpdate("Test1");       // обновляем статус тестовой переменной 1
+    hub.sendUpdate("Test2");       // обновляем статус тестовой переменной 2
+    hub.sendUpdate("Test3");       // обновляем статус тестовой переменной 3
 
-    if (gateState) {               // если ворота открыты
+
+    if (gateState) {  // если ворота открыты
       idleSec = round(idleTime / 1000);
-      hub.sendUpdate("PIR1");      // обновляем состояние PIR1
-      hub.sendUpdate("PIR2");      // обновляем состояние PIR2
-      hub.sendUpdate("PIR3");      // обновляем состояние PIR3
-      hub.sendUpdate("IDLE");      // обновляем состояние IdleSec
+      hub.sendUpdate("PIR1");  // обновляем состояние PIR1
+      hub.sendUpdate("PIR2");  // обновляем состояние PIR2
+      hub.sendUpdate("PIR3");  // обновляем состояние PIR3
+      hub.sendUpdate("IDLE");  // обновляем состояние IdleSec
     }
-  }  
+  }
 
   // определили момент открытия ворот с машиной в гараже
-  if (gateOpened && carStatus) gateOpenedTmr = millis(); 
-   
-  // если требуется изменить ПУ 
+  if (gateOpened && carStatus) gateOpenedTmr = millis();
+
+  // включаем прожектор по кнопке бота  
+  if (manualLightState) {
+    digitalWrite(relayLight, LOW);  // включаем прожектор
+  } 
+
+  // выключаем прожектор по кнопке бота или по таймеру   
+  if (!autoLightState && !manualLightState || (manualLightState && (millis() - lightTmr) > myData.lightPeriod)) {
+    digitalWrite(relayLight, HIGH); // выключаем прожектор
+    manualLightState = 0;
+  }  // end if 
+
+  // включаем прожектор автоматически при открытии ворот в темное время
+  if (gateOpened && isDark) {
+    digitalWrite(relayLight, LOW);  // включаем прожектор
+    autoLightState = 1;
+  }
+
+  // при закрытых воротах выключаем прожектор
+  if (autoLightState && !gateState) {
+    digitalWrite(relayLight, HIGH);  // выключаем прожектор
+    autoLightState = 0;
+  } 
+
+  // если требуется изменить ПУ
   if (hubChanged || gateOpened || gateClosed) {
     hub.sendRefresh();
     gateOpened = 0;
-    gateClosed = 0;   
+    gateClosed = 0;
     hubChanged = 0;
   }
-      
+
   // с периодом heatPeriod включаем прогрев датчика SHT31 на время heat3xTime
   // нагрев включается безусловно
   // начальные значения heat3xFlag = 0, heat3xTmr = 0
   if ((millis() - heat3xTmr) >= (heat3xFlag ? heat3xTime : heatPeriod)) {
-    heat3xTmr = millis();      // сброс таймера
-    heat3xFlag = !heat3xFlag;  // переключаем флаг состояния нагрева датчика
-    if (heat3xFlag) {          // если поднят флаг нагрева 
-      heat3xStart = millis();  // сохраняем время начала нагрева
-      sensorIn.enableHeater();    // включаем нагрев датчика в гараже
+    heat3xTmr = millis();       // сброс таймера
+    heat3xFlag = !heat3xFlag;   // переключаем флаг состояния нагрева датчика
+    if (heat3xFlag) {           // если поднят флаг нагрева
+      heat3xStart = millis();   // сохраняем время начала нагрева
+      sensorIn.enableHeater();  // включаем нагрев датчика в гараже
     } else {
-      sensorIn.disableHeater();   // выключаем нагрев датчика в гараже
+      sensorIn.disableHeater();  // выключаем нагрев датчика в гараже
     }
   }  // end If
 
@@ -460,12 +485,12 @@ void loop() {
   // с периодом heat4xPeriod включаем прогрев датчика SHT41 на 1 секунду
   // или если пришло время ежесуточного прогрева датчика SHT41
   if (((humidityOut > heat4xBorder) && heat4xTmr.tick()) || ((millis() - heat4xStart) > heatPeriod)) {
-    heat4xStart = millis();                                                 // сохраняем время начала нагрева датчика
-    sensorOut.activateHighestHeaterPowerLong(temperatureOut, tempHumidity); // SensirionI2cSht4x.h
-    humidityOut = tempHumidity + myData.humOutCorrection;                   // SensirionI2cSht4x.h
-    showScreen();                                                        // вывод показаний датчиков на экран
-    delay(1000);                                                         // чтобы заметить макс. темп. и RH на дисплее. Не придумал, как обойтись без delay
-  }                                                                      // end If
+    heat4xStart = millis();                                                  // сохраняем время начала нагрева датчика
+    sensorOut.activateHighestHeaterPowerLong(temperatureOut, tempHumidity);  // SensirionI2cSht4x.h
+    humidityOut = tempHumidity + myData.humOutCorrection;                    // SensirionI2cSht4x.h
+    showScreen();                                                            // вывод показаний датчиков на экран
+    delay(1000);                                                             // чтобы заметить макс. темп. и RH на дисплее. Не придумал, как обойтись без delay
+  }                                                                          // end If
 
   if (oledTmr.tick()) {            // если пришло время инвертировать дисплей
     oledFlag = !oledFlag;          // инвертируем флаг состояния дисплея
@@ -473,26 +498,26 @@ void loop() {
   }
 
   // включаем/выключаем вентилятор в зависимости от состояния ventState в ручном режиме
-  if (!ventAuto && ventState ) digitalWrite(relayVent, HIGH);  // включаем вентилятор
-  else digitalWrite(relayVent, LOW);                           // выключаем вентилятор
+  if (!ventAuto && ventState) digitalWrite(relayVent, LOW);  // включаем вентилятор
+  else digitalWrite(relayVent, HIGH);                        // выключаем вентилятор
 
   // если машина в гараже в автоматическом режиме включаем вентилятор в зависимости от разницы влажности
   // при условии большого промежутка времени от момента нагрева датчика
-  if (ventAuto && carStatus && ((millis() - heat4xStart) >= (heat4xPeriod - 30000)) \
-    && (humidityGarage - humidityCalc >= myData.deltaHumidity + myData.hysteresis)) {
-    digitalWrite(relayVent, HIGH); // включаем вентилятор
-    ventState = 1;                 // устанавливаем флаг вентилятора
-    hub.sendUpdate("ventLed");     // обновляем состояние вентилятора на ПУ
-  } 
+  if (ventAuto && carStatus && ((millis() - heat4xStart) >= (heat4xPeriod - 15000))
+      && ((humidityGarage - humidityCalc) >= (myData.deltaHumidity + myData.hysteresis))) {
+    digitalWrite(relayVent, LOW);   // включаем вентилятор
+    ventState = 1;                  // устанавливаем флаг вентилятора
+    hub.sendUpdate("ventLed");      // обновляем состояние вентилятора на ПУ
+  }
 
   // в автоматическом режиме выключаем вентилятор в зависимости от разницы влажности
   // при условии большого промежутка времени от момента нагрева датчика
-  if (ventAuto && ((millis() - heat4xStart) >= (heat4xPeriod - 30000)) \ 
-    && (humidityGarage - humidityCalc < myData.deltaHumidity - myData.hysteresis)) {
-    digitalWrite(relayVent, LOW);  // выключаем вентилятор
+  if (ventAuto && ((millis() - heat4xStart) >= (heat4xPeriod - 15000)) \ 
+    && ((humidityGarage - humidityCalc) < (myData.deltaHumidity - myData.hysteresis))) {
+    digitalWrite(relayVent, HIGH); // выключаем вентилятор
     ventState = 0;                 // устанавливаем флаг вентилятора
     hub.sendUpdate("ventLed");     // обновляем состояние вентилятора на ПУ
-  } 
+  }
 
   // восстанавливаем соединение при случайной пропаже
   if (checkWifiTmr.tick() && (WiFi.status() != WL_CONNECTED)) {
@@ -510,16 +535,14 @@ void loop() {
   }                          // end if
 
   // если время покоя достигает заданного значения, закрываем ворота
-  if (gateState && (idleTime > idleTimePeriod)) {
-    switchGate();  // закрываем ворота    
-  }
+  if (gateState && (idleTime > idleTimePeriod)) switchGate();  // закрываем ворота
 
   // закрываем ворота через carLeavePeriod после выезда машины. carLeaveTmr отмечает время выезда машины
   // закрытие ворот при условии, что выезд произошел раньше, чем gateOpenedPeriod после открытия ворот
-  // carLeaveTmr = 0 после закрытия ворот или если машина в гараже 
-  if(carLeaveTmr && gateState && (millis() - carLeaveTmr > myData.carLeavePeriod) \
-    && (millis() - gateOpenedTmr < myData.gateOpenedPeriod)) {
-    switchGate();  // закрываем ворота    
+  // carLeaveTmr = 0 после закрытия ворот или если машина в гараже
+  if (carLeaveTmr && gateState && (millis() - carLeaveTmr > myData.carLeavePeriod)
+      && (millis() - gateOpenedTmr < myData.gateOpenedPeriod)) {
+    switchGate();  // закрываем ворота
   }
 
   // Если пришло время очередной отправки на Open Monitoring
