@@ -147,6 +147,7 @@ bool gateClosed = 0;         // флаг факта закрытия ворот.
 bool ventState = 0;          // состояние вентилятора. 0 - выключен, 1 - включен
 bool autoLightState = 0;     // состояние прожектора. 0 - выключен, 1 - включен
 bool manualLightState = 0;   // состояние прожектора. 0 - выключен, 1 - включен
+bool lightButtonPressed = 0; // нажатие кнопки включения/выключения света в боте 
 bool ventAuto = 1;           // управление вентилятором. 0 - ручное, 1 - автоматическое
 bool carStatus = 0;          // 1 - машина в гараже, 0 - машина отсутствует
 bool hubChanged = 0;         // 1 - требуется изменить конфигурацию виджетов ПУ
@@ -437,14 +438,17 @@ void loop() {
   if (gateOpened && carStatus) gateOpenedTmr = millis();
 
   // включаем прожектор по кнопке бота  
-  if (manualLightState) {
+  if (lightButtonPressed && !manualLightState) {
     digitalWrite(relayLight, LOW);  // включаем прожектор
-  } 
+    manualLightState = 1;           // поднимаем флаг ручного включения
+    lightButtonPressed = 0;         // сбрасываем факт нажатия кнопки    
+  }  
 
-  // выключаем прожектор по кнопке бота или по таймеру   
-  if (!autoLightState && !manualLightState || (manualLightState && (millis() - lightTmr) > myData.lightPeriod)) {
+  // выключаем включенный вручную прожектор по кнопке бота или по таймеру   
+  if ((lightButtonPressed && manualLightState) || (manualLightState && (millis() - lightTmr) > myData.lightPeriod)) {
     digitalWrite(relayLight, HIGH); // выключаем прожектор
     manualLightState = 0;
+    lightButtonPressed = 0;         // сбрасываем факт нажатия кнопки    
   }  // end if 
 
   // включаем прожектор автоматически при открытии ворот в темное время
@@ -453,7 +457,7 @@ void loop() {
     autoLightState = 1;
   }
 
-  // при закрытых воротах выключаем прожектор
+  // если прожектор был включен автоматически, при закрытии ворот выключаем прожектор
   if (autoLightState && !gateState) {
     digitalWrite(relayLight, HIGH);  // выключаем прожектор
     autoLightState = 0;
