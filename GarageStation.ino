@@ -383,6 +383,7 @@ void loop() {
   
   // делаем в течение дня несколько расчетов темного времени суток. На случай если не будет коннекта
   if (NTP.daySeconds() == 1000 || NTP.daySeconds() == 9000 || NTP.daySeconds() == 18000 || NTP.daySeconds() == 43000) {
+    lipetsk.setCurrentDate(NTP.year(), NTP.month(), NTP.day());
     mornDawn = lipetsk.calcSunrise() * 60 - dayLightShift;          // время наступления рассвета, секунд
     nightFall = lipetsk.calcSunset() * 60 + dayLightShift;          // время наступления сумерек, секунд
   } 
