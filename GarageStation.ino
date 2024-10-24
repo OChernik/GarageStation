@@ -50,7 +50,6 @@ const char* otaPass = "*********";        // OTA Password
 #define heat4xBorder 75                  // значение влажности, выше которого включается нагрев датчика SHT4x
 #define WDT_TIMEOUT 30                   // 30 секунд отсутствия отклика для перезагрузки через WDT
 #define ATOMIC_FS_UPDATE                 // чтобы можно было отсылать боту  .bin.gz архив прошивки
-#define dayLightShift 20 * 60            // разница между восходом/заходом солнца и наступлением темноты, секунд
 #define latitude 52.6                    // широта места для расчета времени восхода/захода солнца
 #define longitude 39.6                   // долгота места для расчета времени восхода/захода солнца
 #define scanPeriod 30000                 // период между сканированиями Bluetooth
@@ -68,8 +67,8 @@ const char* otaPass = "*********";        // OTA Password
 #include <ArduinoOTA.h>         // бибилотека ОТА обновления по WiFi
 #include <ESPmDNS.h>            // нужно для работы бибилиотеки ArduinoOTA.h
 #include <WiFiUdp.h>            // нужно для работы бибилиотеки ArduinoOTA.h
-#include <GyverOLED.h>          //библиотека дисплея
-#include <MyTimer.h>            // тестовая библиотека простейшего таймера моего изготовления
+#include <GyverOLED.h>          // библиотека дисплея
+#include <TimerMs.h>            // библиотека таймера
 #include <GyverHub.h>           // GyverHub
 #include <NewPing.h>            // подключаем библиотеку NewPing для работы датчика расстояния
 #include <FileData.h>           // для сохранения переменных в памяти ESP32 вместо EEPROM
@@ -77,22 +76,25 @@ const char* otaPass = "*********";        // OTA Password
 #include <FastBot.h>            // библиотека управления телеграм-ботом
 #include <GyverNTP.h>           // для получения точного времени с серверов и удобных действий со временем 
 #include <sunset.h>             // для расчета времени восхода/захода солнца. Требуется чтобы вычислять время наступления темноты
-// #include <BluetoothSerial.h>    // библиотека Bluetooth classic
 
 struct Data {                  // структура для хранения настроек в памяти ESP32
-  float humInCorrection = 0;   // поправка влажности датчика внутри гаража
+  float humInCorrection = 2.6; // поправка влажности датчика внутри гаража
   float humOutCorrection = 0;  // поправка влажности датчика на улице
-  uint8_t deltaHumidity = 8;   // порог автовключения вентилятора
-  uint8_t hysteresis = 1;      // разница влажности между включением и выключением вентилятора. Чтобы реле 220V не щелкало слишком часто
+  uint8_t deltaHumidity = 12;   // порог автовключения вентилятора
+  uint8_t hysteresis = 2;      // разница влажности между включением и выключением вентилятора. Чтобы реле 220V не щелкало слишком часто
                                // если время между открытием ворот и выездом машины меньше gateOpenedPeriod,
                                // ворота будут автоматически закрываться через carLeavePeriod после выезда из гаража
   uint32_t gateOpenedPeriod = 600000;
   uint32_t carLeavePeriod = 20000;  // через какое время после выезда машины из гаража закрываются ворота
   uint32_t lightPeriod = 120000;    // время, на которое включается прожектор
+  uint8_t day = 20;                 // текущий день
+  uint8_t month = 10;               // текущий месяц
+  uint16_t year = 2024;             // текущий год
+  uint16_t dayLightShift = 600;     // сдвиг времени сумерек относительно времени восхода/захода
 };
-Data myData;  // создаем переменную myData со структурой Data
+Data myData;  // объявляем структуру myData с типом  Data
 // создание объекта data библиотеки FileData для сохранения настроек на флеше ESP32
-FileData data(&LittleFS, "/myData.dat", 't', &myData, sizeof(myData));
+FileData data(&LittleFS, "/myData.dat", 136, &myData, sizeof(myData));
 
 // Объекты библиотек____________________________________________________________________________________
 SensirionI2cSht3x sensorIn;                       // создание объекта датчика sensorIn в гараже
@@ -101,16 +103,15 @@ GyverBME280 bme;                                  // Создание обьек
 GyverOLED<SSH1106_128x64> oled;                   // создание объекта экрана SSH1106 1,3''
 HTTPClient http;                                  // создаем объект http библиотеки HTTPClient
 WiFiClient client;                                // создаем объект client библиотеки WiFiClient
-MyTimer oledTmr(oledInvertPeriod);                // создаем объект oledTmr таймера MyTimer с периодом oledInvertPeriod
-MyTimer heat4xTmr(heat4xPeriod);                  // создаем объект heat4xTmr таймера MyTimer с периодом heat4xPeriod
-MyTimer checkWifiTmr(checkWifiPeriod);            // создаем объект checkWifiTmr таймера MyTimer с периодом checkWifiPeriod
-MyTimer sensorReadTmr(sensorReadPeriod);          // создаем объект sensorReadTmr таймера MyTimer с периодом sensorReadPeriod
-MyTimer gateReadTmr(gateReadPeriod);              // создаем объект gateReadTmr таймера MyTimer с периодом gateReadPeriod
+TimerMs oledTmr(oledInvertPeriod, 1, 0);          // создаем объект oledTmr таймера MyTimer с периодом oledInvertPeriod
+TimerMs heat4xTmr(heat4xPeriod, 1, 0);            // создаем объект heat4xTmr таймера MyTimer с периодом heat4xPeriod
+TimerMs checkWifiTmr(checkWifiPeriod, 1, 0);      // создаем объект checkWifiTmr таймера MyTimer с периодом checkWifiPeriod
+TimerMs sensorReadTmr(sensorReadPeriod, 1, 0);    // создаем объект sensorReadTmr таймера MyTimer с периодом sensorReadPeriod
+TimerMs gateReadTmr(gateReadPeriod, 1, 0);        // создаем объект gateReadTmr таймера MyTimer с периодом gateReadPeriod
 GyverHub hub;                                     // создаем объект GyverHub
 FastBot bot(BOT_TOKEN);                           // создаем объект FastBot
 NewPing sonar(triggerPin, echoPin, MaxDistance);  // создаем объект NewPing
 SunSet lipetsk;                                   // создаем объект SunSet
-// BluetoothSerial SerialBT;                         // создаем объект SerialBT
 
 // Переменные___________________________________________________________________________________
 float temperatureGarage;     // значение температуры в гараже
@@ -124,8 +125,8 @@ float tempTemperature;       // первичное значение темпер
 float tempHumidity;          // первичное значение влажности с датчика до проверки на выброс
 int distance;                // значение расстояния до машины
 int8_t rssi;                 // переменная измеренного значения rssi, dB
-uint16_t mornDawn;                // время начала утреннего рассвета, секунд
-uint16_t nightFall;               // время начала сумерек, секунд
+uint16_t mornDawn;           // время начала утреннего рассвета, секунд
+uint16_t nightFall;          // время начала сумерек, секунд
 uint32_t heat3xTmr = 0;      // переменная таймера нагрева датчика SHT31
 uint32_t openMonTmr = 0;     // переменная таймера отправки сообщений на сервер open-monitoring.online
 uint32_t narodMonTmr = 0;    // переменная таймера отсылки данных на сервер NarodMon
@@ -155,12 +156,6 @@ bool hubChanged = 0;         // 1 - требуется изменить конф
 bool idleState = 0;          // состояние общего покоя. 0 - покой, 1 - движение
 bool isDark;                 // темно ли на улице. 1 - темно, 0 - светло
 int idleSec = 0;             // текущее время покоя в целых секундах
-
-String findMyCar;
-String myCar = "CHANGAN, Address: 74:04:f0:05:b4:79";
-uint32_t scanPeriodTmr = 0;  // переменная времени начала сканирования Bluetooth
-bool myCarFound; 
-bool scanStart;
 
 void build(gh::Builder& b) {  // билдер GyverHub.
   // добавляем в меню два пользовательских пункта 0.Контроль гаража и 1.Настройки гаража.
@@ -199,7 +194,10 @@ void build(gh::Builder& b) {  // билдер GyverHub.
     } else {
       if (b.Switch(&ventState).label(F("Вентилятор ON/OFF")).click()) (hubChanged = 1);
     }
-    b.LED_(F("lightLed"), &autoLightState).label(F("Прожектор ON/OFF"));
+    if (b.Switch(&manualLightState).label(F("Прожектор ON/OFF")).click()){
+      hubChanged = 1;
+      if (manualLightState) lightTmr = millis();
+    } 
     b.endRow();
   }
   // статус ворот
@@ -256,9 +254,10 @@ void build(gh::Builder& b) {  // билдер GyverHub.
     b.endRow();
   }
 
-  // добавляем спиннер с lightPeriod
+  // добавляем спиннеры с lightPeriod и dayLightShift
   if (b.beginRow()) {
     if (b.Spinner(&myData.lightPeriod).range(0, 1200000, 60000).label(F("Время включения прожектора")).click()) data.update();
+    if (b.Spinner(&myData.dayLightShift).range(0, 1800, 60).label(F("Время до темноты, с")).click()) data.update();    
     b.endRow();
   }
 }  // end void build()
@@ -287,8 +286,8 @@ void setup() {
   esp_task_wdt_init(WDT_TIMEOUT, true);  //enable panic so ESP32 restarts
   esp_task_wdt_add(NULL);                //add current thread to WDT watch
 
-  LittleFS.begin();  // инициализация файловой системы на флеше для записи настроек
-  data.read();       // считываем данные настроек из флеша
+  LittleFS.begin();                  // инициализация файловой системы на флеше для записи настроек
+  FDstat_t stat = data.read();       // считываем данные настроек из флеша. При первом запуске во флеш пишутся данные из структуры
 
   Serial.begin(115200);
   Wire.begin();                              // SensirionI2cSht3x.h and SensirionI2cSht4x.h
@@ -296,7 +295,6 @@ void setup() {
   sensorIn.disableHeater();                  // изначально выключаем нагрев датчика в гараже
   sensorOut.begin(Wire, SHT41_I2C_ADDR_44);  // SensirionI2cSht4x.h
   bme.begin();                               // инициализируем датчик BMP280
-  // SerialBT.begin("ESP32test");               //Bluetooth device name
 
   oled.init();                   // инициализация дисплея
   oled.setContrast(10);          // яркость 0..255
@@ -305,10 +303,11 @@ void setup() {
   oled.flipH(true);              // true/false - отзеркалить по горизонтали (для переворота экрана)
   oled.flipV(true);              // true/false - отзеркалить по вертикали (для переворота экрана)
 
-
   initWiFi();  // установили соединение WiFi
 
-  NTP.begin(3);                              // запустить объект NTP и указать часовой пояс
+  NTP.begin(3);                                // запустить объект NTP и указать часовой пояс
+  lipetsk.setPosition(latitude, longitude, 3); // задали расположение объекта lipetsk
+  lipetsk.setCurrentDate(myData.year, myData.month, myData.day);        // задали начальную дату
 
   // библиотека ArduinoOTA.h делает что-то нужное для работы ОТА
   ArduinoOTA
@@ -341,13 +340,6 @@ void setup() {
   ArduinoOTA.setPassword(otaPass);
   ArduinoOTA.begin();
 
-  // первоначальный расчет времени наступления рассвета, сумерек и факта темноты
-  lipetsk.setPosition(latitude, longitude, 3);
-  lipetsk.setCurrentDate(NTP.year(), NTP.month(), NTP.day());
-  mornDawn = lipetsk.calcSunrise() * 60 - dayLightShift;          // время наступления рассвета, секунд
-  nightFall = lipetsk.calcSunset() * 60 + dayLightShift;          // время наступления сумерек, секунд
-  (NTP.daySeconds() < mornDawn || NTP.daySeconds() > nightFall) ? (isDark = 1) : (isDark = 0);
-
   hub.mqtt.config("m6.wqtt.ru", 17108, mqttLogin, mqttPass);  // подключаем платный защищенный MQTT сервис
   // hub.mqtt.config(F("test.mosquitto.org"), 1883);          // подключаем бесплатный незащищенный MQTT сервис
   hub.config(hubPrefix, F("Garage"), F("f494"));  // конфигурация GyverHub
@@ -379,27 +371,18 @@ void loop() {
 
   bot.tick();  // тикаем для работы телеграм бота
 
-  NTP.tick();
-  (NTP.daySeconds() < mornDawn || NTP.daySeconds() > nightFall) ? (isDark = 1) : (isDark = 0);
-  
+  NTP.tick();  
   // делаем в течение дня несколько расчетов темного времени суток. На случай если не будет коннекта
-  if (NTP.daySeconds() == 1000 || NTP.daySeconds() == 9000 || NTP.daySeconds() == 18000 || NTP.daySeconds() == 43000) {
-    lipetsk.setCurrentDate(NTP.year(), NTP.month(), NTP.day());
-    mornDawn = lipetsk.calcSunrise() * 60 - dayLightShift;          // время наступления рассвета, секунд
-    nightFall = lipetsk.calcSunset() * 60 + dayLightShift;          // время наступления сумерек, секунд
+  if (NTP.online() && (NTP.daySeconds() == 1000 || NTP.daySeconds() == 9000 || NTP.daySeconds() == 18000 || NTP.daySeconds() == 50000)) {
+    myData.year = NTP.year();
+    myData.month = NTP.month();
+    myData.day = NTP.day();
+    data.update();                                                   // записать измененные данные на флеш
+    lipetsk.setCurrentDate(myData.year, myData.month, myData.day);
+    mornDawn = lipetsk.calcSunrise() * 60 - myData.dayLightShift;    // время наступления рассвета, секунд
+    nightFall = lipetsk.calcSunset() * 60 + myData.dayLightShift;    // время наступления сумерек, секунд
   } 
-
-  // if (!scanStart && ((millis() - scanPeriodTmr) >= scanPeriod)) {  // начало сканирования Bluetooth
-  //   scanPeriodTmr = millis();
-  //   startScanMyCar();
-  //   scanStart = 1;
-  // }
-
-  // if (scanStart && ((millis() - scanPeriodTmr) >= stopPeriod)) {   // конец сканирования Bluetooth
-  //   scanPeriodTmr = millis();
-  //   stopScanMyCar();
-  //   scanStart = 0;
-  // }
+  (NTP.daySeconds() < mornDawn || NTP.daySeconds() > nightFall) ? (isDark = 1) : (isDark = 0);
 
   if (sensorReadTmr.tick()) {  // если пришло время опроса датчиков погоды
     sensorsRead();             // функция считывает все датчики погоды
@@ -420,12 +403,11 @@ void loop() {
     hub.sendUpdate("HumGarage");   // обновляем значение влажности в гараже
     hub.sendUpdate("HumCalc");     // обновляем значение приведенной влажности
     hub.sendUpdate("Pressure");    // обновляем значение давления
-    hub.sendUpdate("lightLed");    // обновляем статус прожектора
+    hub.sendUpdate("ventLed");     // обновляем статус вентилятора    
     hub.sendUpdate("Car");         // обновляем статус машины
     hub.sendUpdate("Test1");       // обновляем статус тестовой переменной 1
     hub.sendUpdate("Test2");       // обновляем статус тестовой переменной 2
     hub.sendUpdate("Test3");       // обновляем статус тестовой переменной 3
-
 
     if (gateState) {  // если ворота открыты
       idleSec = round(idleTime / 1000);
@@ -439,15 +421,16 @@ void loop() {
   // определили момент открытия ворот с машиной в гараже
   if (gateOpened && carStatus) gateOpenedTmr = millis();
 
-  // включаем прожектор по кнопке бота  
-  if (lightButtonPressed && !manualLightState) {
+  // включаем прожектор по кнопке бота или переключателю ПУ   
+  if ((lightButtonPressed && !manualLightState) || (!lightButtonPressed && manualLightState)) {
     digitalWrite(relayLight, LOW);  // включаем прожектор
     manualLightState = 1;           // поднимаем флаг ручного включения
     lightButtonPressed = 0;         // сбрасываем факт нажатия кнопки    
-  }  
+  } 
 
-  // выключаем включенный вручную прожектор по кнопке бота или по таймеру   
-  if ((lightButtonPressed && manualLightState) || (manualLightState && (millis() - lightTmr) > myData.lightPeriod)) {
+  // выключаем включенный вручную прожектор по кнопке бота, переключателю ПУ или по таймеру   
+  if ((lightButtonPressed && manualLightState) || (!lightButtonPressed && !manualLightState && !autoLightState) \ 
+    || (manualLightState && (millis() - lightTmr) > myData.lightPeriod)) {
     digitalWrite(relayLight, HIGH); // выключаем прожектор
     manualLightState = 0;
     lightButtonPressed = 0;         // сбрасываем факт нажатия кнопки    
