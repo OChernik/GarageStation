@@ -271,27 +271,3 @@ float humConversion(float h1, float t1, float t2) {
   float h2 = h1 * (p1 / p2);    // расчитали приведенную влажность
   return h2;
 }
-
-// callBack функция вызывается каждый раз при нахождении нового Bluetooth устройства 
-// void btAdvertisedDeviceFound(BTAdvertisedDevice* pDevice) {
-//   Serial.printf("Found a device asynchronously: %s\n", pDevice->toString().c_str());
-//   findMyCar = pDevice->toString().c_str();
-//   if (findMyCar.indexOf(myCar) >0) myCarFound = 1;
-//   else myCarFound = 0;
-//   Serial.print("myCarFound = ");
-//   Serial.println(myCarFound);
-// }
-
-// // функция начала асинхронного сканирования Bluetooth
-// void startScanMyCar(){
-//   Serial.print("Starting discoverAsync...");
-//   SerialBT.discoverAsync(btAdvertisedDeviceFound);
-//   Serial.println("Findings will be reported in \"btAdvertisedDeviceFound\"");
-// }
-
-// // функция конца асинхронного сканирования Bluetooth
-// void stopScanMyCar(){ 
-//   Serial.print("Stopping discoverAsync... ");
-//   SerialBT.discoverAsyncStop();
-//   Serial.println("stopped");
-// }
