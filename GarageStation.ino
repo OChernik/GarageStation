@@ -52,8 +52,6 @@ const char* otaPass = "*********";        // OTA Password
 #define ATOMIC_FS_UPDATE                 // чтобы можно было отсылать боту  .bin.gz архив прошивки
 #define latitude 52.6                    // широта места для расчета времени восхода/захода солнца
 #define longitude 39.6                   // долгота места для расчета времени восхода/захода солнца
-#define scanPeriod 30000                 // период между сканированиями Bluetooth
-#define stopPeriod 10000                 // длительность сканирования Bluetooth
 
 // Библиотеки_______________________________________________________________
 #include <Arduino.h>
@@ -77,16 +75,16 @@ const char* otaPass = "*********";        // OTA Password
 #include <GyverNTP.h>           // для получения точного времени с серверов и удобных действий со временем 
 #include <sunset.h>             // для расчета времени восхода/захода солнца. Требуется чтобы вычислять время наступления темноты
 
-struct Data {                  // структура для хранения настроек в памяти ESP32
+struct Data {                  // структура типа Data для хранения настроек в памяти ESP32
   float humInCorrection = 2.6; // поправка влажности датчика внутри гаража
   float humOutCorrection = 0;  // поправка влажности датчика на улице
-  uint8_t deltaHumidity = 12;   // порог автовключения вентилятора
+  uint8_t deltaHumidity = 12;  // порог автовключения вентилятора
   uint8_t hysteresis = 2;      // разница влажности между включением и выключением вентилятора. Чтобы реле 220V не щелкало слишком часто
-                               // если время между открытием ворот и выездом машины меньше gateOpenedPeriod,
-                               // ворота будут автоматически закрываться через carLeavePeriod после выезда из гаража
+  // если время между открытием ворот и выездом машины меньше gateOpenedPeriod,
+  // ворота будут автоматически закрываться через carLeavePeriod после выезда из гаража
   uint32_t gateOpenedPeriod = 600000;
   uint32_t carLeavePeriod = 20000;  // через какое время после выезда машины из гаража закрываются ворота
-  uint32_t lightPeriod = 120000;    // время, на которое включается прожектор
+  uint32_t lightPeriod = 120000;    // время, через которое отключается прожектор после ручного включения
   uint8_t day = 20;                 // текущий день
   uint8_t month = 10;               // текущий месяц
   uint16_t year = 2024;             // текущий год
@@ -97,21 +95,21 @@ Data myData;  // объявляем структуру myData с типом  Dat
 FileData data(&LittleFS, "/myData.dat", 136, &myData, sizeof(myData));
 
 // Объекты библиотек____________________________________________________________________________________
-SensirionI2cSht3x sensorIn;                       // создание объекта датчика sensorIn в гараже
-SensirionI2cSht4x sensorOut;                      // создание объекта датчика sensorOut на улице
-GyverBME280 bme;                                  // Создание обьекта bme
-GyverOLED<SSH1106_128x64> oled;                   // создание объекта экрана SSH1106 1,3''
+SensirionI2cSht3x sensorIn;                       // создание объекта датчика sensorIn в гараже библиотеки SensirionI2cSht3x
+SensirionI2cSht4x sensorOut;                      // создание объекта датчика sensorOut на улице библиотеки SensirionI2cSht4x
+GyverBME280 bme;                                  // Создание обьекта bme библиотеки GyverBME280
+GyverOLED<SSH1106_128x64> oled;                   // создание объекта oled экрана SSH1106 1,3''
 HTTPClient http;                                  // создаем объект http библиотеки HTTPClient
 WiFiClient client;                                // создаем объект client библиотеки WiFiClient
-TimerMs oledTmr(oledInvertPeriod, 1, 0);          // создаем объект oledTmr таймера MyTimer с периодом oledInvertPeriod
-TimerMs heat4xTmr(heat4xPeriod, 1, 0);            // создаем объект heat4xTmr таймера MyTimer с периодом heat4xPeriod
-TimerMs checkWifiTmr(checkWifiPeriod, 1, 0);      // создаем объект checkWifiTmr таймера MyTimer с периодом checkWifiPeriod
-TimerMs sensorReadTmr(sensorReadPeriod, 1, 0);    // создаем объект sensorReadTmr таймера MyTimer с периодом sensorReadPeriod
-TimerMs gateReadTmr(gateReadPeriod, 1, 0);        // создаем объект gateReadTmr таймера MyTimer с периодом gateReadPeriod
-GyverHub hub;                                     // создаем объект GyverHub
-FastBot bot(BOT_TOKEN);                           // создаем объект FastBot
-NewPing sonar(triggerPin, echoPin, MaxDistance);  // создаем объект NewPing
-SunSet lipetsk;                                   // создаем объект SunSet
+TimerMs oledTmr(oledInvertPeriod, 1, 0);          // создаем объект oledTmr таймера TimerMs с периодом oledInvertPeriod
+TimerMs heat4xTmr(heat4xPeriod, 1, 0);            // создаем объект heat4xTmr таймера TimerMs с периодом heat4xPeriod
+TimerMs checkWifiTmr(checkWifiPeriod, 1, 0);      // создаем объект checkWifiTmr таймера TimerMs с периодом checkWifiPeriod
+TimerMs sensorReadTmr(sensorReadPeriod, 1, 0);    // создаем объект sensorReadTmr таймера TimerMs с периодом sensorReadPeriod
+TimerMs gateReadTmr(gateReadPeriod, 1, 0);        // создаем объект gateReadTmr таймера TimerMs с периодом gateReadPeriod
+GyverHub hub;                                     // создаем объект hub библиотеки GyverHub
+FastBot bot(BOT_TOKEN);                           // создаем объект bot библиотеки FastBot
+NewPing sonar(triggerPin, echoPin, MaxDistance);  // создаем объект sonar библиотеки NewPing
+SunSet lipetsk;                                   // создаем объект lipetsk библиотеки SunSet
 
 // Переменные___________________________________________________________________________________
 float temperatureGarage;     // значение температуры в гараже
@@ -305,9 +303,9 @@ void setup() {
 
   initWiFi();  // установили соединение WiFi
 
-  NTP.begin(3);                                // запустить объект NTP и указать часовой пояс
-  lipetsk.setPosition(latitude, longitude, 3); // задали расположение объекта lipetsk
-  lipetsk.setCurrentDate(myData.year, myData.month, myData.day);        // задали начальную дату
+  NTP.begin(3);                                                  // запустить объект NTP и указать часовой пояс
+  lipetsk.setPosition(latitude, longitude, 3);                   // задали расположение объекта lipetsk
+  lipetsk.setCurrentDate(myData.year, myData.month, myData.day); // задали начальную дату
 
   // библиотека ArduinoOTA.h делает что-то нужное для работы ОТА
   ArduinoOTA
@@ -336,9 +334,9 @@ void setup() {
       else if (error == OTA_END_ERROR) Serial.println("End Failed");
     });
 
-  ArduinoOTA.setHostname("ESP32_Garage");
-  ArduinoOTA.setPassword(otaPass);
-  ArduinoOTA.begin();
+  ArduinoOTA.setHostname("ESP32_Garage");       // задаем видимое в сети имя контроллера
+  ArduinoOTA.setPassword(otaPass);              // задаем пароль для ОТА прошивки контроллера по сети 
+  ArduinoOTA.begin();                           // начинаем работу ArduinoOTA
 
   hub.mqtt.config("m6.wqtt.ru", 17108, mqttLogin, mqttPass);  // подключаем платный защищенный MQTT сервис
   // hub.mqtt.config(F("test.mosquitto.org"), 1883);          // подключаем бесплатный незащищенный MQTT сервис
@@ -382,14 +380,14 @@ void loop() {
     mornDawn = lipetsk.calcSunrise() * 60 - myData.dayLightShift;    // время наступления рассвета, секунд
     nightFall = lipetsk.calcSunset() * 60 + myData.dayLightShift;    // время наступления сумерек, секунд
   } 
-  (NTP.daySeconds() < mornDawn || NTP.daySeconds() > nightFall) ? (isDark = 1) : (isDark = 0);
+  (NTP.daySeconds() < mornDawn || NTP.daySeconds() > nightFall) ? (isDark = 1) : (isDark = 0); // определяем темно ли сейчас на улице
 
   if (sensorReadTmr.tick()) {  // если пришло время опроса датчиков погоды
     sensorsRead();             // функция считывает все датчики погоды
     showScreen();              // вывод показаний датчиков на экран
   }                            // end if
 
-  if (gateReadTmr.tick()) {  // если пришло время опроса датчиков
+  if (gateReadTmr.tick()) {  // если пришло время опроса датчиков гаража
     gateRead();              // функция считывает геркон, датчик дистанции и ПИР датчики и выставляет флаги
     showScreen();            // вывод показаний датчиков на экран
   }                          // end if
