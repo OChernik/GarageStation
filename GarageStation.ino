@@ -226,9 +226,9 @@ void build(gh::Builder& b) {  // билдер GyverHub.
   // горизонтальный контейнер с полями для тестовых переменных
   if (b.beginRow()) {
     // bool temp = digitalRead(relayVent);
-    b.Label_(F("Test1"), lipetsk.calcSunrise()).label(F("Восход солнца")).color(gh::Colors::Red).fontSize(16);
-    b.Label_(F("Test2"), lipetsk.calcSunset()).label(F("Заход солнца")).color(gh::Colors::Aqua).fontSize(16);
-    b.Label_(F("Test3"), isDark).label(F("isDark")).color(gh::Colors::Aqua).fontSize(16);
+    b.Label_(F("Test1"), mornDawn).label(F("mornDawn")).color(gh::Colors::Red).fontSize(16);
+    b.Label_(F("Test2"), nightFall).label(F("nightFall")).color(gh::Colors::Aqua).fontSize(16);
+    b.Label_(F("Test3"), NTP.daySeconds()).label(F("daySeconds")).color(gh::Colors::Aqua).fontSize(16);
     b.endRow();
   }
 
