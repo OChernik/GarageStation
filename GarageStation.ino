@@ -12,7 +12,9 @@
 // вентилятор включается в автоматическом режиме если 
 // humidityGarage - humidityCalc >= myData.deltaHumidity + myData.hysteresis 
 
-// Настройки____________________________________________________________________
+//*********************************************************************************************************
+// Ключи и пароли
+//*********************************************************************************************************
 const char* ssid = "*********";        // wifi Login
 const char* password = "*********";        // wifi Password
 const char* mqttLogin = "*********";        // mqtt Login
@@ -26,6 +28,9 @@ const char* otaPass = "*********";        // OTA Password
 #define CHAT_ID "*****"                   // Telegram chat ID
 #define OLEG_ID "*****"                   // Telegram chat ID
 
+//*********************************************************************************************************
+// Настройки
+//*********************************************************************************************************
 #define pir1 26                          // sensor PIR1 to GPIO26
 #define pir2 27                          // sensor PIR2 to GPIO27
 #define pir3 35                          // sensor PIR2 to GPIO35
@@ -49,16 +54,17 @@ const char* otaPass = "*********";        // OTA Password
 #define heat3xBorder 65                  // значение влажности, выше которого включается нагрев датчика SHT3x
 #define heat4xBorder 75                  // значение влажности, выше которого включается нагрев датчика SHT4x
 #define WDT_TIMEOUT 30                   // 30 секунд отсутствия отклика для перезагрузки через WDT
-#define ATOMIC_FS_UPDATE                 // чтобы можно было отсылать боту  .bin.gz архив прошивки
 #define latitude 52.6                    // широта места для расчета времени восхода/захода солнца
 #define longitude 39.6                   // долгота места для расчета времени восхода/захода солнца
 
-// Библиотеки_______________________________________________________________
+//*********************************************************************************************************
+// Библиотеки
+//*********************************************************************************************************
 #include <Arduino.h>
-#include <esp_task_wdt.h>  // библиотека WatchDogTimer
-#include <WiFi.h>
-#include <HTTPClient.h>
-#include <Wire.h>
+#include <esp_task_wdt.h>       // библиотека WatchDogTimer
+#include <WiFi.h>               // библиотека для работы с WiFi
+#include <HTTPClient.h>         // библиотека для отправки данных на OpenMonitiring
+#include <Wire.h>               // библиотеки для обеспечения работы шины I2C
 #include <SensirionI2cSht3x.h>  // библиотека датчиков температуры и влажности SHT3х
 #include <SensirionI2cSht4x.h>  // библиотека датчиков температуры и влажности SHT4х
 #include <GyverBME280.h>        // библиотека датчика температуры и давления BMP280 или BME280
@@ -94,7 +100,9 @@ Data myData;  // объявляем структуру myData с типом  Dat
 // создание объекта data библиотеки FileData для сохранения настроек на флеше ESP32
 FileData data(&LittleFS, "/myData.dat", 136, &myData, sizeof(myData));
 
-// Объекты библиотек____________________________________________________________________________________
+//**************************************************************************************************************
+// Объекты библиотек
+//**************************************************************************************************************
 SensirionI2cSht3x sensorIn;                       // создание объекта датчика sensorIn в гараже
 SensirionI2cSht4x sensorOut;                      // создание объекта датчика sensorOut на улице
 GyverBME280 bme;                                  // Создание обьекта bme
@@ -111,7 +119,9 @@ FastBot bot(BOT_TOKEN);                           // создаем объект
 NewPing sonar(triggerPin, echoPin, MaxDistance);  // создаем объект NewPing
 SunSet lipetsk;                                   // создаем объект SunSet
 
-// Переменные___________________________________________________________________________________
+//*********************************************************************************************************
+// Переменные
+//*********************************************************************************************************
 float temperatureGarage;     // значение температуры в гараже
 float temperatureOut;        // значение температуры на улице
 float temperatureBox;        // значение температуры в коробке
@@ -154,6 +164,7 @@ bool hubChanged = 0;         // 1 - требуется изменить конф
 bool idleState = 0;          // состояние общего покоя. 0 - покой, 1 - движение
 bool isDark;                 // темно ли на улице. 1 - темно, 0 - светло
 int idleSec = 0;             // текущее время покоя в целых секундах
+
 //****************************************************************************************************
 // билдер GyverHub
 //*****************************************************************************************************
@@ -230,15 +241,16 @@ void build(gh::Builder& b) {
 
   // горизонтальный контейнер с полями для тестовых переменных
   if (b.beginRow()) {
-    bool temp1 = digitalRead(relayVent);
-    bool temp2;
-    bool temp3;
-    ((millis() - heat4xStart) >= (heat4xPeriod - 15000)) ? (temp2 = 1) : (temp2 = 0); 
-    ((humidityGarage - humidityCalc) >= (myData.deltaHumidity + myData.hysteresis)) ? (temp3 = 1) : (temp3 = 0);
-    b.Label_("Test1", ventState).label("ventState").color(gh::Colors::Aqua).fontSize(14);
-    b.Label_("Test2", temp1).label("relayVent(inverted)").color(gh::Colors::Aqua).fontSize(14);
-    b.Label_("Test3", temp2).label("millis() - heat4xStart...").color(gh::Colors::Aqua).fontSize(14);
-    b.Label_("Test4", temp3).label("humidityGarage - humidityCalc...").color(gh::Colors::Aqua).fontSize(14);
+    float temp1;
+    float temp2;
+    float temp3;
+    if ((millis() - heat4xStart) >= (heat4xPeriod - 15000)) (temp1 = humidityGarage - humidityCalc);
+    temp2 =  myData.deltaHumidity + myData.hysteresis;
+    temp3 =  myData.deltaHumidity - myData.hysteresis; 
+    b.Label_("Test1", temp1).label("Delta").color(gh::Colors::Aqua).fontSize(14);
+    b.Label_("Test2", temp2).label("Delta ON").color(gh::Colors::Aqua).fontSize(14);
+    b.Label_("Test3", temp3).label("Deta OFF").color(gh::Colors::Aqua).fontSize(14);
+  //   b.Label_("Test4", temp3).label("humidityGarage - humidityCalc...").color(gh::Colors::Aqua).fontSize(14);
     b.endRow();
   }
 
@@ -270,7 +282,9 @@ void build(gh::Builder& b) {
   }
 }  // end void build()
 
-// Setup______________________________________________________________________________________________
+//****************************************************************************************************
+// Setup
+//****************************************************************************************************
 void setup() {
   pinMode(pir1, INPUT_PULLDOWN);    // задаем вход датчика pir1 и подтягиваем его к земле
   pinMode(pir2, INPUT_PULLDOWN);    // задаем вход датчика pir2 и подтягиваем его к земле
@@ -371,7 +385,9 @@ void setup() {
 
 }  // end void Setup()
 
-// Loop_______________________________________________________________________________________________
+//****************************************************************************************************
+// Loop
+//****************************************************************************************************
 void loop() {
 
   esp_task_wdt_reset();  // сбрасываем Watch Dog Timer чтобы не прошла перезагрузка
@@ -418,7 +434,7 @@ void loop() {
     hub.sendUpdate("Test1");       // обновляем статус тестовой переменной 1
     hub.sendUpdate("Test2");       // обновляем статус тестовой переменной 2
     hub.sendUpdate("Test3");       // обновляем статус тестовой переменной 3
-    hub.sendUpdate("Test4");       // обновляем статус тестовой переменной 4
+    // hub.sendUpdate("Test4");       // обновляем статус тестовой переменной 4
 
     if (gateState) {  // если ворота открыты
       idleSec = round(idleTime / 1000);
