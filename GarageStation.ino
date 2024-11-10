@@ -241,9 +241,9 @@ void build(gh::Builder& b) {
 
   // горизонтальный контейнер с полями для тестовых переменных
   if (b.beginRow()) {
-    float temp1;
-    float temp2;
-    float temp3;
+    static float temp1;
+    uint8_t temp2;
+    uint8_t temp3;
     if ((millis() - heat4xStart) >= (heat4xPeriod - 15000)) (temp1 = humidityGarage - humidityCalc);
     temp2 =  myData.deltaHumidity + myData.hysteresis;
     temp3 =  myData.deltaHumidity - myData.hysteresis; 
