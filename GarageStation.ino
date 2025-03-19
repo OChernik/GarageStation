@@ -114,6 +114,7 @@ TimerMs heat4xTmr(heat4xPeriod, 1, 0);            // создаем объект
 TimerMs checkWifiTmr(checkWifiPeriod, 1, 0);      // создаем объект checkWifiTmr таймера MyTimer с периодом checkWifiPeriod
 TimerMs sensorReadTmr(sensorReadPeriod, 1, 0);    // создаем объект sensorReadTmr таймера MyTimer с периодом sensorReadPeriod
 TimerMs gateReadTmr(gateReadPeriod, 1, 0);        // создаем объект gateReadTmr таймера MyTimer с периодом gateReadPeriod
+TimerMs isDarkTmr(1000, 1, 0);                    // создаем объект isDarkTmr таймера MyTimer с периодом 1 секунда
 GyverHub hub;                                     // создаем объект GyverHub
 FastBot bot(BOT_TOKEN);                           // создаем объект FastBot
 NewPing sonar(triggerPin, echoPin, MaxDistance);  // создаем объект NewPing
@@ -398,7 +399,7 @@ void loop() {
   bot.tick();  // тикаем для работы телеграм бота
 
   // делаем в течение дня  новый расчет темного времени суток. 
-    if (NTP.tick() && (NTP.day() != myData.day)) {   // если дата поменялась
+  if (NTP.tick() && (NTP.day() != myData.day)) {   // если дата поменялась
     myData.year = NTP.year();
     myData.month = NTP.month();
     myData.day = NTP.day();
@@ -407,7 +408,11 @@ void loop() {
     mornDawn = round(lipetsk.calcSunrise() * 60) - myData.dayLightShift;    // время наступления рассвета, секунд
     nightFall = round(lipetsk.calcSunset() * 60) + myData.dayLightShift;    // время наступления сумерек, секунд
   } 
-  (NTP.daySeconds() < mornDawn || NTP.daySeconds() > nightFall) ? (isDark = 1) : (isDark = 0);
+
+  // периодическая проверка темно или светло на улице 
+  if (isDarkTmr.tick()) {      // если пришло время проверки освещенности
+    (NTP.daySeconds() < mornDawn || NTP.daySeconds() > nightFall) ? (isDark = 1) : (isDark = 0);          
+  }                            // end if  
 
   if (sensorReadTmr.tick()) {  // если пришло время опроса датчиков погоды
     sensorsRead();             // функция считывает все датчики погоды
