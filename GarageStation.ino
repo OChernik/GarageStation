@@ -26,7 +26,7 @@ const char* OpenMonKey = "*********";     // Open Monitoring Key
 const char* otaPass = "*********";        // OTA Password
 #define BOT_TOKEN "****"                  // Telegram bot token
 #define CHAT_ID "*****"                   // Telegram chat ID
-#define OLEG_ID "*****"                   // Telegram chat ID
+#define ADMIN_ID "*****"                  // Telegram chat ID
 
 //*********************************************************************************************************
 // Настройки
@@ -419,8 +419,8 @@ void loop() {
     showScreen();              // вывод показаний датчиков на экран
   }                            // end if
 
-  if (gateReadTmr.tick()) {  // если пришло время опроса датчиков
-    gateRead();              // функция считывает геркон, датчик дистанции и ПИР датчики и выставляет флаги
+  if (gateReadTmr.tick()) {  // если пришло время опроса остальных датчиков
+    gateRead();              // функция считывает геркон, датчик дистанции, датчики движения и выставляет флаги
     showScreen();            // вывод показаний датчиков на экран
   }                          // end if
 
