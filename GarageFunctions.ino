@@ -3,7 +3,7 @@ void newMsg(FB_msg& msg) {
 
   String msgID = msg.chatID;  // сохраняем chatID запроса, чтобы отправлять ответы только запросившему
 
-  // if (msg.OTA && msg.chatID == OLEG_ID) {    // разрешить обновление прошивки для Олега
+  // if (msg.OTA && msg.chatID == ADMIN_ID) {   // разрешить обновление прошивки для Админа
   //   bot.tickManual();                        // отметить сообщение прочитанным и избежать бесконечного обновления
   //   bot.update();                            // telegram update 
   // }  
@@ -199,7 +199,9 @@ void sensorsRead() {
     humidityOut = myData.humOutCorrection + tempHumidity;
   } else {  // через 30 секунд начинается фильтрация
     temperatureOut = tempTemperature;
-    humidityOut = myData.humOutCorrection + tempHumidity;
+    if (tempHumidity <= 50) humidityOut =  tempHumidity;                           // не используем поправку влажности
+    if (tempHumidity > 50 && tempHumidity <= 80) humidityOut = (1 + myData.humOutCorrection / 30) * tempHumidity - (50 / 30) * myData.humOutCorrection; // поправка влажности постепенно увеличивается 
+    if (tempHumidity > 80) humidityOut = tempHumidity + myData.humOutCorrection;   // добавляем поправку целиком
     // temperatureOut = filterValue(tempTemperature, temperatureOut, 0.05);
     // humidityOut = myData.humOutCorrection + filterValue(tempHumidity, humidityOut, 0.05);
   }
