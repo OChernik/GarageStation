@@ -199,9 +199,9 @@ void sensorsRead() {
     humidityOut = myData.humOutCorrection + tempHumidity;
   } else {  // через 30 секунд начинается фильтрация
     temperatureOut = tempTemperature;
-    if (tempHumidity <= 50) humidityOut =  tempHumidity;                           // не используем поправку влажности
-    if (tempHumidity > 50 && tempHumidity <= 80) humidityOut = (1 + myData.humOutCorrection / 30) * tempHumidity - (50 / 30) * myData.humOutCorrection; // поправка влажности постепенно увеличивается 
-    if (tempHumidity > 80) humidityOut = tempHumidity + myData.humOutCorrection;   // добавляем поправку целиком
+    if (tempHumidity <= 50) humidityOut =  tempHumidity;                           // при малой влажности не используем поправку
+    if (tempHumidity > 50 && tempHumidity <= 80) humidityOut = (1 + myData.humOutCorrection / 30) * tempHumidity - (50 / 30) * myData.humOutCorrection; // поправка влажности линейно увеличивается 
+    if (tempHumidity > 80) humidityOut = tempHumidity + myData.humOutCorrection;   // при высокой влажности добавляем поправку целиком
     // temperatureOut = filterValue(tempTemperature, temperatureOut, 0.05);
     // humidityOut = myData.humOutCorrection + filterValue(tempHumidity, humidityOut, 0.05);
   }
