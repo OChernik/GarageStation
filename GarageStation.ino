@@ -198,6 +198,12 @@ void build(gh::Builder& b) {
     b.Label_("HumCalc", humidityCalc).label("Приведенная влажность").color(gh::Colors::Aqua);
     b.endRow();
   }
+  // горизонтальный контейнер с температурой в корпусе и RSSI
+  if (b.beginRow()) {
+    b.Label_("TempBox", temperatureBox).label("Температура в корпусе").color(gh::Colors::Orange);
+    b.Label_("RSSI", rssi).label("RSSI").color(gh::Colors::Aqua);
+    b.endRow();
+  }
   // горизонтальный контейнер с работой вентилятора и прожектора
   if (b.beginRow()) {
     if (b.Switch(&ventAuto).label("АвтоРежим").click()) (hubChanged = 1);
@@ -433,6 +439,8 @@ void loop() {
     hub.sendUpdate("HumGarage");   // обновляем значение влажности в гараже
     hub.sendUpdate("HumCalc");     // обновляем значение приведенной влажности
     hub.sendUpdate("Pressure");    // обновляем значение давления
+    hub.sendUpdate("TempBox");     // обновляем значение температуры в корпусе
+    hub.sendUpdate("RSSI");        // обновляем значение RSSI    
     hub.sendUpdate("ventLed");     // обновляем статус вентилятора    
     hub.sendUpdate("Car");         // обновляем статус машины
     hub.sendUpdate("DarkState");   // обновляем статус темноты на улице
