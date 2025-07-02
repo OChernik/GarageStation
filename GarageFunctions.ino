@@ -115,7 +115,7 @@ void showScreen() {
 float filterValue(float newValue, float filtValue, float delta) {
   float k;    // коэффициент фильтрации. от 0 до 1. Чем меньше, тем плавнее фильтр
   // резкость фильтра зависит от модуля разности значений
-  (abs(newValue - filtValue) > delta) ? (k = 0.3) : (k = 0.1);  
+  (abs(newValue - filtValue) > delta) ? (k = 0.7) : (k = 0.1);  
   filtValue += (newValue - filtValue) * k;
   return filtValue;  
 }
@@ -198,26 +198,27 @@ void sensorsRead() {
     temperatureOut = tempTemperature;
     humidityOut = myData.humOutCorrection + tempHumidity;
   } else {  // через 30 секунд начинается фильтрация
-    temperatureOut = tempTemperature;
-    if (tempHumidity <= 50) humidityOut =  tempHumidity;                           // при малой влажности не используем поправку
-    if (tempHumidity > 50 && tempHumidity <= 80) humidityOut = (1 + myData.humOutCorrection / 30) * tempHumidity - (50 / 30) * myData.humOutCorrection; // поправка влажности линейно увеличивается 
-    if (tempHumidity > 80) humidityOut = tempHumidity + myData.humOutCorrection;   // при высокой влажности добавляем поправку целиком
-    // temperatureOut = filterValue(tempTemperature, temperatureOut, 0.05);
-    // humidityOut = myData.humOutCorrection + filterValue(tempHumidity, humidityOut, 0.05);
+    // temperatureOut = tempTemperature;
+    // if (tempHumidity <= 50) humidityOut =  tempHumidity;                           // при малой влажности не используем поправку
+    // if (tempHumidity > 50 && tempHumidity <= 80) humidityOut = (1 + myData.humOutCorrection / 30) * tempHumidity - (50 / 30) * myData.humOutCorrection; // поправка влажности линейно увеличивается 
+    // if (tempHumidity > 80) humidityOut = tempHumidity + myData.humOutCorrection;   // при высокой влажности добавляем поправку целиком
+    temperatureOut = filterValue(tempTemperature, temperatureOut, 0.05);    
+    if (tempHumidity <= 50) humidityOut =  filterValue(tempHumidity, humidityOut, 0.05);    // при малой влажности не используем поправку
+    if (tempHumidity > 50 && tempHumidity <= 80) humidityOut = filterValue((1 + myData.humOutCorrection / 30) * tempHumidity - (50 / 30) * myData.humOutCorrection, humidityOut, 0.05); // поправка влажности линейно увеличивается 
+    if (tempHumidity > 80) humidityOut = filterValue(tempHumidity + myData.humOutCorrection, humidityOut, 0.05);   // при высокой влажности добавляем поправку целиком
   }
   sensorIn.measureSingleShot(REPEATABILITY_HIGH, false, tempTemperature, tempHumidity);  // SensirionI2cSht3x.h
-  temperatureGarage = tempTemperature;
-  humidityGarage = myData.humInCorrection + tempHumidity;
-  // temperatureGarage = filterValue(tempTemperature, temperatureGarage, 0.05);
-  // humidityGarage = filterValue(tempHumidity, humidityGarage, 0.05);  
+  // temperatureGarage = tempTemperature;
+  // humidityGarage = tempHumidity + myData.humInCorrection;
+  temperatureGarage = filterValue(tempTemperature, temperatureGarage, 0.05);
+  humidityGarage = filterValue(tempHumidity + myData.humInCorrection, humidityGarage, 0.05);  
   // sensorOut.measureSingleShot(REPEATABILITY_HIGH, false, tempTemperature, tempHumidity);  // SensirionI2cSht3x.h
   // temperatureOut = filterValue(tempTemperature, temperatureGarage, 0.05);
-  // humidityOut = myData.humOutCorrection + filterValue(tempHumidity, humidityGarage, 0.05);
-  // temperatureBox = filterValue(bme.readTemperature(), temperatureBox, 0.05);        // GyverBME280.h
-  // pressure = filterValue((pressureToMmHg(bme.readPressure())), pressure, 0.05);     // GyverBME280.h
-  // rssi = filterValue(WiFi.RSSI(), rssi, 3);
-  temperatureBox = bme.readTemperature();         // GyverBME280.h
-  pressure = pressureToMmHg(bme.readPressure());  // GyverBME280.h
+  // humidityOut = filterValue(tempHumidity + myData.humOutCorrection, humidityGarage, 0.05);
+  temperatureBox = filterValue(bme.readTemperature(), temperatureBox, 0.05);        // GyverBME280.h
+  pressure = filterValue((pressureToMmHg(bme.readPressure())), pressure, 0.05);     // GyverBME280.h
+  // temperatureBox = bme.readTemperature();         // GyverBME280.h
+  // pressure = pressureToMmHg(bme.readPressure());  // GyverBME280.h
   rssi = WiFi.RSSI();
   // считаем уличную влажность при температуре в гараже
   humidityCalc = humConversion(humidityOut, temperatureOut, temperatureGarage);
