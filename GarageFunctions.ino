@@ -3,7 +3,7 @@ void newMsg(FB_msg& msg) {
 
   String msgID = msg.chatID;  // сохраняем chatID запроса, чтобы отправлять ответы только запросившему
 
-  // if (msg.OTA && msg.chatID == ADMIN_ID) {   // разрешить обновление прошивки для Админа
+  // if (msg.OTA && msg.chatID == ADMIN_ID) {    // разрешить обновление прошивки для Админа
   //   bot.tickManual();                        // отметить сообщение прочитанным и избежать бесконечного обновления
   //   bot.update();                            // telegram update 
   // }  
@@ -39,10 +39,15 @@ void newMsg(FB_msg& msg) {
   }
 
   if (msg.text == "/vent_switch" || msg.text == "Вент. ON/OFF"){
-    String buf;
-    ventState = !ventState;
-    (ventState) ? (buf = "Вентилятор включен") : (buf = "Вентилятор отключен");   
-    bot.sendMessage(buf, msgID);  // отправили сообщение
+    String buf;    
+    if (!ventAuto) {   // если ручной режим
+      ventState = !ventState;
+      (ventState) ? (buf = "Вентилятор включен") : (buf = "Вентилятор отключен");   
+      bot.sendMessage(buf, msgID);  // отправили сообщение
+    } else {          // если автоматический режим
+      buf = "Выключите Авто режим";
+      bot.sendMessage(buf, msgID);  // отправили сообщение
+    }  // end if (!ventAuto)
   }
 
   if (msg.text == "/light_switch" || msg.text == "Свет ON/Off"){
@@ -78,21 +83,32 @@ void initWiFi() {
   Serial.println(WiFi.localIP());
 }  // end void initWiFi()
 
+// Функция обновляет содержимое chatId
+void chatIdRefresh() {
+  uint16_t counter = dataId.amount();  // количество пар
+  chatId = "";
+  for (uint16_t i = 1; i <= counter; i++) {
+  String text2 = dataId.get(i-1).toString();     // индекс начинается с 0
+  chatId += text2;
+  if (i < counter) chatId += ",";   // добавляем разделительную запятую между отдельными telegram_id
+  }
+}  // end void chatIdRefresh()
+
 // Процедура showScreen() выводит на экран значения температуры, влажности, пинг WiFi, RSSI
 // и оставшееся время до импульса нагрева датчика
 void showScreen() {
   // counterDown это время, оставшееся до включения нагрева датчика SHT4x
   float counterDown = (heat4xPeriod - (millis() - heat4xStart)) / 1000;
-  oled.clear();                      // очищаем дисплей
-  oled.setScale(2);                  // масштаб текста (1..4)
-  oled.setCursor(0, 0);              // курсор на начало 1 строки
-  oled.print("H ");                  // вывод H
-  oled.print(humidityGarage, 1);     // вывод значения Humidity
-  oled.setCursor(0, 2);              // курсор на начало 2 строки
-  oled.print("T ");                  // вывод Т
-  oled.print(temperatureGarage, 1);  // вывод значения Temperature
+  oled.clear();                   // очищаем дисплей
+  oled.setScale(2);               // масштаб текста (1..4)
+  oled.setCursor(0, 0);           // курсор на начало 1 строки
+  oled.print("H ");               // вывод H
+  oled.print(humidityOut, 1);     // вывод значения Humidity
+  oled.setCursor(0, 2);           // курсор на начало 2 строки
+  oled.print("T ");               // вывод Т
+  oled.print(temperatureOut, 1);  // вывод значения Temperature
 
-  if (humidityGarage <= heat4xBorder) {         // если значение влажности меньше heat4xBorder
+  if (humidityOut <= heat4xBorder) {         // если значение влажности меньше heat4xBorder
     oled.print((heat3xFlag) ? " On" : " Off");  // вывод "On" если датчик греется
   } else {                                      // если значение влажности больше heat4xBorder
     oled.print(" ");                            // вывод " " если датчик будет греться
@@ -115,7 +131,7 @@ void showScreen() {
 float filterValue(float newValue, float filtValue, float delta) {
   float k;    // коэффициент фильтрации. от 0 до 1. Чем меньше, тем плавнее фильтр
   // резкость фильтра зависит от модуля разности значений
-  (abs(newValue - filtValue) > delta) ? (k = 0.7) : (k = 0.1);  
+  (abs(newValue - filtValue) > delta) ? (k = 0.3) : (k = 0.1);  
   filtValue += (newValue - filtValue) * k;
   return filtValue;  
 }
@@ -191,7 +207,7 @@ void switchGate() {
   idleTime = 0;                  // сброс времени покоя
 }  // end switchGate
 
-// функция считывает датчики температуры, влажности и давления 
+// функция считывает датчики температуры, влажности, давления 
 void sensorsRead() {
   sensorOut.measureHighPrecision(tempTemperature, tempHumidity); // SensirionI2cSht4x.h
   if ((millis() - heat4xStart) < 30000) {                        // сразу после нагрева выводим данные как есть
